@@ -198,7 +198,10 @@ class BoxInt implements EvcOp {
   @override
   void run(Runtime runtime) {
     final reg = _reg;
-    runtime.frame[reg] = $int(runtime.frame[reg] as int);
+    final value = runtime.frame[reg];
+    if (value is! $int) {
+      runtime.frame[reg] = $int(value as int);
+    }
   }
 
   @override
@@ -218,7 +221,10 @@ class BoxDouble implements EvcOp {
   @override
   void run(Runtime runtime) {
     final reg = _reg;
-    runtime.frame[reg] = $double(runtime.frame[reg] as double);
+    final value = runtime.frame[reg];
+    if (value is! $double) {
+      runtime.frame[reg] = $double(value as double);
+    }
   }
 
   @override
@@ -239,7 +245,10 @@ class BoxNum implements EvcOp {
   @override
   void run(Runtime runtime) {
     final reg = _reg;
-    runtime.frame[reg] = $num(runtime.frame[reg] as num);
+    final value = runtime.frame[reg];
+    if (value is! $num) {
+      runtime.frame[reg] = $num(value as num);
+    }
   }
 
   @override
@@ -259,7 +268,10 @@ class BoxString implements EvcOp {
   @override
   void run(Runtime runtime) {
     final reg = _reg;
-    runtime.frame[reg] = $String(runtime.frame[reg] as String);
+    final value = runtime.frame[reg];
+    if (value is! $String) {
+      runtime.frame[reg] = $String(value as String);
+    }
   }
 
   @override
@@ -680,7 +692,10 @@ class BoxBool implements EvcOp {
   @override
   void run(Runtime runtime) {
     final reg = _reg;
-    runtime.frame[reg] = $bool(runtime.frame[reg] as bool);
+    final value = runtime.frame[reg];
+    if (value is! $bool) {
+      runtime.frame[reg] = $bool(value as bool);
+    }
   }
 
   @override
