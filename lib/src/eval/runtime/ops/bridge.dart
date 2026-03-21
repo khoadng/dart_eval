@@ -25,7 +25,9 @@ class BridgeInstantiate implements EvcOp {
 
     final mappedArgs = List<$Value?>.filled(argsLen, null);
     for (var i = 0; i < argsLen; i++) {
-      mappedArgs[i] = (args[i] as $Value?);
+      final arg = args[i];
+      if (arg == null) continue;
+      mappedArgs[i] = arg is $Value ? arg : runtime.wrapPrimitive(arg);
     }
 
     runtime.args = [];
@@ -103,7 +105,9 @@ class InvokeExternal implements EvcOp {
 
     final mappedArgs = List<$Value?>.filled(argsLen, null);
     for (var i = 0; i < argsLen; i++) {
-      mappedArgs[i] = (args[i] as $Value?);
+      final arg = args[i];
+      if (arg == null) continue;
+      mappedArgs[i] = arg is $Value ? arg : runtime.wrapPrimitive(arg);
     }
 
     runtime.args = [];

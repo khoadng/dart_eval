@@ -1149,5 +1149,26 @@ void main() {
       final result = runtime.executeLib('package:example/main.dart', 'main');
       expect(result is $String ? result.$reified : result, '1.23e+2');
     });
+
+    test('int.parse in map chain with accumulation', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'example': {
+          'main.dart': '''
+            void main() {
+              var raw = '10,20,30,40,50';
+              var values = raw.split(',').map((s) => int.parse(s));
+              var total = 0;
+              for (final v in values) {
+                total += v;
+              }
+              print(total);
+            }
+          ''',
+        },
+      });
+      expect(() {
+        runtime.executeLib('package:example/main.dart', 'main');
+      }, prints('150\n'));
+    });
   });
 }
