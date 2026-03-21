@@ -275,6 +275,27 @@ void main() {
       }, prints('100.0\n'));
     });
 
+    test('Int variable not assignable to double setter', () {
+      expect(
+        () => compiler.compileWriteAndLoad({
+          'example': {
+            'main.dart': '''
+              class Foo {
+                double _value = 0;
+                set value(double v) { _value = v; }
+              }
+              void main() {
+                var f = Foo();
+                int a = 1;
+                f.value = a;
+              }
+            ''',
+          },
+        }),
+        throwsA(anything),
+      );
+    });
+
     test('New-style super constructor parameters', () {
       final runtime = compiler.compileWriteAndLoad({
         'example': {
