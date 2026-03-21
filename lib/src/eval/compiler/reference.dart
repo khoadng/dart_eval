@@ -840,18 +840,23 @@ Variable _declarationToVariable(
       decl,
     );
     final DeferredOrOffset offset;
+    final constructorKey = name.endsWith('.') ? name : '$name.';
 
     if (ctx.topLevelDeclarationPositions[decOrBridge.sourceLib]?.containsKey(
-          '$name.',
+          constructorKey,
         ) ??
         false) {
       offset = DeferredOrOffset(
         file: decOrBridge.sourceLib,
         offset:
-            ctx.topLevelDeclarationPositions[decOrBridge.sourceLib]!['$name.'],
+            ctx.topLevelDeclarationPositions[decOrBridge
+                .sourceLib]![constructorKey],
       );
     } else {
-      offset = DeferredOrOffset(file: decOrBridge.sourceLib, name: '$name.');
+      offset = DeferredOrOffset(
+        file: decOrBridge.sourceLib,
+        name: constructorKey,
+      );
     }
 
     return Variable(
@@ -936,18 +941,23 @@ StaticDispatch? _declarationToStaticDispatch(
     decl as ClassDeclaration;
 
     final DeferredOrOffset offset;
+    final constructorKey = name.endsWith('.') ? name : '$name.';
 
     if (ctx.topLevelDeclarationPositions[decOrBridge.sourceLib]?.containsKey(
-          '$name.',
+          constructorKey,
         ) ??
         false) {
       offset = DeferredOrOffset(
         file: decOrBridge.sourceLib,
         offset:
-            ctx.topLevelDeclarationPositions[decOrBridge.sourceLib]!['$name.'],
+            ctx.topLevelDeclarationPositions[decOrBridge
+                .sourceLib]![constructorKey],
       );
     } else {
-      offset = DeferredOrOffset(file: decOrBridge.sourceLib, name: '$name.');
+      offset = DeferredOrOffset(
+        file: decOrBridge.sourceLib,
+        name: constructorKey,
+      );
     }
 
     final rt = AlwaysReturnType(
