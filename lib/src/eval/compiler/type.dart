@@ -927,6 +927,11 @@ class TypeRef {
       return slot.nullable || slot == CoreTypes.nullType.ref(ctx);
     }
 
+    // int is assignable to double
+    if (this == CoreTypes.int.ref(ctx) && slot == CoreTypes.double.ref(ctx)) {
+      return true;
+    }
+
     final generics = overrideGenerics ?? specifiedTypeArgs;
 
     if (this == slot) {
