@@ -274,10 +274,25 @@ Variable compileMethodInvocation(
         !(mReturnType.type?.isUnboxedAcrossFunctionBoundaries ?? false),
   );
 
+  // Attach type arguments for constructor returns
+  var finalReturnType = returnType;
+  if (isConstructor && finalReturnType != null && e.typeArguments != null) {
+    final specifiedArgs = e.typeArguments!.arguments
+        .map((a) => TypeRef.fromAnnotation(ctx, ctx.library, a))
+        .toList();
+    if (specifiedArgs.isNotEmpty) {
+      finalReturnType = finalReturnType.copyWith(
+        specifiedTypeArgs: specifiedArgs,
+      );
+    }
+  }
+
   final v = Variable.alloc(
     ctx,
-    returnType ?? CoreTypes.dynamic.ref(ctx),
-    concreteTypes: [if (isConstructor && returnType != null) returnType],
+    finalReturnType ?? CoreTypes.dynamic.ref(ctx),
+    concreteTypes: [
+      if (isConstructor && finalReturnType != null) finalReturnType,
+    ],
   );
 
   return v;

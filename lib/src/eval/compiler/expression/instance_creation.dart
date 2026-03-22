@@ -91,8 +91,15 @@ Variable compileInstanceCreation(
     ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);
   }
 
-  return Variable.alloc(
-    ctx,
-    $resolved.concreteTypes.first.copyWith(boxed: true),
-  );
+  // Attach type arguments so field access can resolve generic types
+  var resultType = $resolved.concreteTypes.first;
+  final typeArgAnnotations = type.typeArguments?.arguments;
+  if (typeArgAnnotations != null && typeArgAnnotations.isNotEmpty) {
+    final specifiedArgs = typeArgAnnotations
+        .map((a) => TypeRef.fromAnnotation(ctx, ctx.library, a))
+        .toList();
+    resultType = resultType.copyWith(specifiedTypeArgs: specifiedArgs);
+  }
+
+  return Variable.alloc(ctx, resultType.copyWith(boxed: true));
 }

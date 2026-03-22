@@ -35,6 +35,7 @@ void compileClassDeclaration(
     }
   }
   var i = 0;
+  TypeRef.loadTemporaryTypes(ctx, d.typeParameters?.typeParameters);
   if (constructors.isEmpty) {
     ctx.resetStack(position: 0);
     ctx.currentClass = d;
@@ -53,6 +54,7 @@ void compileClassDeclaration(
       i += m.fields.variables.length;
     }
   }
+  ctx.temporaryTypes[ctx.library]?.clear();
   ctx.currentClass = null;
   ctx.resetStack();
 }

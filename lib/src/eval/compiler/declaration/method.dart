@@ -27,6 +27,12 @@ int compileMethodDeclaration(
   ctx.beginAllocScope(existingAllocLen: (d.parameters?.parameters.length ?? 0));
   ctx.scopeFrameOffset += d.parameters?.parameters.length ?? 0;
   ctx.setLocal('#this', Variable(0, TypeRef.$this(ctx)!));
+  final savedTempTypes = ctx.temporaryTypes[ctx.library] != null
+      ? Map<String, TypeRef>.of(ctx.temporaryTypes[ctx.library]!)
+      : null;
+  if (d.typeParameters != null) {
+    TypeRef.loadTemporaryTypes(ctx, d.typeParameters?.typeParameters);
+  }
   final resolvedParams = d.parameters == null
       ? <PossiblyValuedParameter>[]
       : resolveFPLDefaults(ctx, d.parameters, true, allowUnboxed: false);
@@ -104,6 +110,11 @@ int compileMethodDeclaration(
   }
 
   ctx.endAllocScope();
+  if (savedTempTypes != null) {
+    ctx.temporaryTypes[ctx.library] = savedTempTypes;
+  } else {
+    ctx.temporaryTypes[ctx.library]?.clear();
+  }
 
   if (d.isStatic) {
     ctx.topLevelDeclarationPositions[ctx.library]!['$parentName.$methodName'] =

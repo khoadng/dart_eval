@@ -22,6 +22,42 @@ Pair<List<Variable>, Map<String, Variable>> compileArgumentList(
   List<String> superParams = const [],
   AstNode? source,
 }) {
+  // Load type params so argument boxing matches constructor expectations.
+  // Constructor is compiled once with T→dynamic(boxed), so arguments must
+  // also resolve T→dynamic(boxed) to maintain boxing consistency.
+  final savedTempTypes = ctx.temporaryTypes[decLibrary] != null
+      ? Map<String, TypeRef>.of(ctx.temporaryTypes[decLibrary]!)
+      : null;
+  if (parameterHost is ConstructorDeclaration) {
+    final $class = parameterHost.parent as NamedCompilationUnitMember;
+    if ($class is ClassDeclaration) {
+      TypeRef.loadTemporaryTypes(
+        ctx,
+        $class.typeParameters?.typeParameters,
+        decLibrary,
+      );
+    }
+  } else if (parameterHost is FunctionDeclaration) {
+    TypeRef.loadTemporaryTypes(
+      ctx,
+      parameterHost.functionExpression.typeParameters?.typeParameters,
+      decLibrary,
+    );
+  } else if (parameterHost is MethodDeclaration) {
+    if (ctx.currentClass case final ClassDeclaration cls) {
+      TypeRef.loadTemporaryTypes(
+        ctx,
+        cls.typeParameters?.typeParameters,
+        decLibrary,
+      );
+    }
+    TypeRef.loadTemporaryTypes(
+      ctx,
+      parameterHost.typeParameters?.typeParameters,
+      decLibrary,
+    );
+  }
+
   final args = <Variable>[];
   final push = <Variable>[];
   final namedArgs = <String, Variable>{};
@@ -229,6 +265,13 @@ Pair<List<Variable>, Map<String, Variable>> compileArgumentList(
   for (final restArg in <Variable>[...before, ...push]) {
     final argOp = PushArg.make(restArg.scopeFrameOffset);
     ctx.pushOp(argOp, PushArg.LEN);
+  }
+
+  // Restore temporary types
+  if (savedTempTypes != null) {
+    ctx.temporaryTypes[decLibrary] = savedTempTypes;
+  } else {
+    ctx.temporaryTypes[decLibrary]?.clear();
   }
 
   return Pair(args, namedArgs);
