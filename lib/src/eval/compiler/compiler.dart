@@ -3,6 +3,7 @@ import 'package:collection/collection.dart';
 import 'package:dart_eval/dart_eval_bridge.dart';
 import 'package:dart_eval/src/eval/compiler/builtins.dart';
 import 'package:dart_eval/src/eval/compiler/declaration/declaration.dart';
+import 'package:dart_eval/src/eval/compiler/declaration/extension.dart';
 import 'package:dart_eval/src/eval/compiler/declaration/field.dart';
 import 'package:dart_eval/src/eval/compiler/model/diagnostic_mode.dart';
 import 'package:dart_eval/src/eval/compiler/model/library.dart';
@@ -511,11 +512,29 @@ class Compiler implements BridgeDeclarationRegistry, EvalPluginRegistry {
         });
       });
 
+      /// Compile extension declarations
+      for (final library in reachableLibraries) {
+        final libraryIndex = libraryIndexMap[library]!;
+        _ctx.library = libraryIndex;
+        _ctx.topLevelDeclarationPositions[libraryIndex] ??= {};
+        _ctx.instanceDeclarationPositions[libraryIndex] ??= {};
+        _ctx.instanceGetterIndices[libraryIndex] ??= {};
+        for (final decOrBridge in library.declarations) {
+          if (!decOrBridge.isBridge) {
+            final decl = decOrBridge.declaration;
+            if (decl is ExtensionDeclaration) {
+              compileExtensionDeclaration(_ctx, decl);
+              _ctx.resetStack();
+            }
+          }
+        }
+      }
+
       /// Compile the rest of the declarations
       _topLevelDeclarationsMap.forEach((key, value) {
-        _ctx.topLevelDeclarationPositions[key] = {};
-        _ctx.instanceDeclarationPositions[key] = {};
-        _ctx.instanceGetterIndices[key] = {};
+        _ctx.topLevelDeclarationPositions[key] ??= {};
+        _ctx.instanceDeclarationPositions[key] ??= {};
+        _ctx.instanceGetterIndices[key] ??= {};
         final visibleInLibrary = visibleDeclarationsByIndex[key];
         if (visibleInLibrary == null) {
           return;
@@ -535,6 +554,7 @@ class Compiler implements BridgeDeclarationRegistry, EvalPluginRegistry {
           _ctx.resetStack();
         });
       });
+
     } on CompileError catch (e, stk) {
       Error.throwWithStackTrace(e.copyWithContext(_ctx), stk);
     }
@@ -660,6 +680,8 @@ class Compiler implements BridgeDeclarationRegistry, EvalPluginRegistry {
         );
         _topLevelGlobalIndices[libraryIndex]![name] = _ctx.globalIndex++;
       }
+    } else if (declaration is ExtensionDeclaration) {
+      return;
     } else {
       declaration as NamedCompilationUnitMember;
       final name = declaration.name.lexeme;

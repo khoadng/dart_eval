@@ -139,6 +139,22 @@ class IdentifierReference implements Reference {
         );
         return formattedValue;
       }
+      // Check extension setters
+      for (final libEntry in ctx.extensionDeclarations.entries) {
+        for (final extEntry in libEntry.value.entries) {
+          final ext = extEntry.value;
+          if (ext.appliesTo(ctx, object!.type)) {
+            final offset = ext.setters[name];
+            if (offset != null) {
+              object!.boxIfNeeded(ctx, source).pushArg(ctx);
+              value.boxIfNeeded(ctx, source).pushArg(ctx);
+              ctx.pushOp(Call.make(offset), Call.length);
+              return value;
+            }
+          }
+        }
+      }
+
       object = object!.boxIfNeeded(ctx, source);
       final fieldType =
           TypeRef.lookupFieldType(
@@ -336,6 +352,42 @@ class IdentifierReference implements Reference {
         ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);
         return Variable.alloc(ctx, type);
       }
+      // Instance members take precedence — only check extensions if
+      // the type doesn't have this member
+      var hasOwnMember =
+          TypeRef.lookupFieldType(ctx, object!.type, name) != null;
+      if (!hasOwnMember) {
+        try {
+          hasOwnMember =
+              resolveInstanceDeclaration(
+                    ctx, object!.type.file, object!.type.name, name) !=
+                  null ||
+              resolveInstanceDeclaration(
+                    ctx, object!.type.file, object!.type.name, '$name*g') !=
+                  null;
+        } catch (_) {}
+      }
+
+      if (!hasOwnMember) {
+        for (final libEntry in ctx.extensionDeclarations.entries) {
+          for (final extEntry in libEntry.value.entries) {
+            final ext = extEntry.value;
+            if (ext.appliesTo(ctx, object!.type)) {
+              final offset = ext.getters[name];
+              if (offset != null) {
+                object!.boxIfNeeded(ctx, source).pushArg(ctx);
+                ctx.pushOp(Call.make(offset), Call.length);
+                ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);
+                return Variable.alloc(
+                  ctx,
+                  CoreTypes.dynamic.ref(ctx).copyWith(boxed: true),
+                );
+              }
+            }
+          }
+        }
+      }
+
       object = object!.boxIfNeeded(ctx, source);
       return object!.getProperty(ctx, name);
     }
@@ -344,6 +396,37 @@ class IdentifierReference implements Reference {
     final local = ctx.lookupLocal(name);
     if (local != null) {
       return local;
+    }
+
+    // In extension methods, resolve unqualified names:
+    // 1. Other members of the same extension (e.g. doubled from quadrupled)
+    // 2. Properties of the on-type via #this
+    if (ctx.currentClass == null) {
+      final $this = ctx.lookupLocal('#this');
+      if ($this != null) {
+        // Check current extension's own getters/methods
+        final ext = ctx.currentExtension;
+        if (ext != null) {
+          final getterOffset = ext.getters[name];
+          if (getterOffset != null) {
+            $this.boxIfNeeded(ctx, source).pushArg(ctx);
+            ctx.pushOp(Call.make(getterOffset), Call.length);
+            ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);
+            final returnType = ext.returnTypes[name] ??
+                CoreTypes.dynamic.ref(ctx);
+            return Variable.alloc(
+              ctx, returnType.copyWith(boxed: true),
+            );
+          }
+        }
+
+        if ($this.type != CoreTypes.dynamic.ref(ctx)) {
+          final fieldType = TypeRef.lookupFieldType(ctx, $this.type, name);
+          if (fieldType != null) {
+            return $this.boxIfNeeded(ctx, source).getProperty(ctx, name);
+          }
+        }
+      }
     }
 
     // Next, the instance (if available)

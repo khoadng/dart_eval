@@ -1,0 +1,29 @@
+Extension methods — current support and limitations
+
+Supported:
+- Methods on bridge types (String, int, etc)
+- Methods with parameters
+- Chained extension calls
+- Return type tracking (enables chaining)
+- Getters on bridge and eval-defined types
+- Setters on eval-defined types
+- Operators on eval-defined types
+- Multiple extensions on same type (different method names)
+- Implicit this.property on bridge types (e.g. length instead of this.length)
+- Implicit this.property on eval classes in operator bodies
+- Static methods accessed via extension name (IntUtils.clamp())
+- Extension method calling another member of same extension
+- Extension on superclass works when called on subclass
+
+Tested and working:
+- Extension on superclass, invoked on subclass instance
+- Extension on List
+- Extension on Map (with explicit this.length)
+
+Not supported:
+- Cross-file extensions — tree shaker drops extensions imported from other files (they look unused)
+- Explicit extension invocation (A('Hello').shout()) — requires type resolution in parser
+- Generic extensions (extension ListExt<T> on List<T>)
+- Extension methods on dynamic-typed values
+- Extension on enum — enum name/index not accessible at runtime (pre-existing dart_eval limitation)
+- Implicit this.property on Map/enum in extension body — lookupFieldType can't resolve bridge fields (use explicit this.property instead)

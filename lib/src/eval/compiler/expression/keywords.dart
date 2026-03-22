@@ -7,10 +7,13 @@ import 'package:dart_eval/src/eval/compiler/type.dart';
 import 'package:dart_eval/src/eval/compiler/variable.dart';
 
 Variable compileThisExpression(ThisExpression e, CompilerContext ctx) {
-  if (ctx.currentClass == null) {
-    throw CompileError("Cannot use 'this' outside of a class context");
+  final $this = ctx.lookupLocal('#this');
+  if ($this == null) {
+    throw CompileError(
+      "Cannot use 'this' outside of a class or extension context",
+    );
   }
-  return ctx.lookupLocal('#this')!;
+  return $this;
 }
 
 Variable compileSuperExpression(SuperExpression e, CompilerContext ctx) {

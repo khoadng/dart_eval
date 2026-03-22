@@ -75,7 +75,7 @@ StatementInfo doReturn(
         // about the expected return type.
         // We skip this if the skipClassBoxing flag is set, which is used
         // for operators as they can be statically guaranteed to return an unboxed type.
-        (ctx.currentClass == null || skipClassBoxing)) {
+        ((ctx.currentClass == null && !ctx.inExtension) || skipClassBoxing)) {
       value0 = value0.unboxIfNeeded(ctx);
     } else {
       value0 = value0.boxIfNeeded(ctx);

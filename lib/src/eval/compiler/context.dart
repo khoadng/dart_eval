@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:dart_eval/dart_eval_bridge.dart';
 import 'package:dart_eval/src/eval/compiler/builtins.dart';
+import 'package:dart_eval/src/eval/compiler/declaration/extension.dart';
 import 'package:dart_eval/src/eval/compiler/constant_pool.dart';
 import 'package:dart_eval/src/eval/compiler/model/label.dart';
 import 'package:dart_eval/src/eval/compiler/model/override_spec.dart';
@@ -195,6 +196,10 @@ class CompilerContext with ScopeContext {
   Map<int, Map<String, int>> topLevelGlobalIndices = {};
   Map<int, Map<String, int>> topLevelGlobalInitializers = {};
   Map<int, Map<String, Map<String, int>>> enumValueIndices = {};
+
+  Map<int, Map<String, ExtensionInfo>> extensionDeclarations = {};
+  bool inExtension = false;
+  ExtensionInfo? currentExtension;
   Map<int, int> runtimeGlobalInitializerMap = {};
   Map<int, Map<String, TypeRef>> topLevelVariableInferredTypes = {};
   Map<TypeRef, int> typeRefIndexMap = {};

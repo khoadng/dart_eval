@@ -66,15 +66,42 @@ extension Invoke on Variable {
         CheckEq.LEN,
       );
     } else {
-      for (final invokeArg in args0) {
-        ctx.pushOp(PushArg.make(invokeArg.scopeFrameOffset), PushArg.LEN);
+      // Check extension methods for operators
+      int? extOffset;
+      for (final libEntry in ctx.extensionDeclarations.entries) {
+        for (final extEntry in libEntry.value.entries) {
+          final ext = extEntry.value;
+          if (ext.appliesTo(ctx, $this.type)) {
+            extOffset = ext.methods[method];
+            if (extOffset != null) break;
+          }
+        }
+        if (extOffset != null) break;
       }
 
-      final invokeOp = InvokeDynamic.make(
-        $this.scopeFrameOffset,
-        ctx.constantPool.addOrGet(method),
-      );
-      ctx.pushOp(invokeOp, InvokeDynamic.len(invokeOp));
+      if (extOffset != null) {
+        $this.pushArg(ctx);
+        for (final invokeArg in args0) {
+          invokeArg.pushArg(ctx);
+        }
+        ctx.pushOp(Call.make(extOffset), Call.length);
+        ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);
+        final result = Variable.alloc(
+          ctx,
+          CoreTypes.dynamic.ref(ctx).copyWith(boxed: true),
+        );
+        return InvokeResult($this, result, args0);
+      } else {
+        for (final invokeArg in args0) {
+          ctx.pushOp(PushArg.make(invokeArg.scopeFrameOffset), PushArg.LEN);
+        }
+
+        final invokeOp = InvokeDynamic.make(
+          $this.scopeFrameOffset,
+          ctx.constantPool.addOrGet(method),
+        );
+        ctx.pushOp(invokeOp, InvokeDynamic.len(invokeOp));
+      }
     }
 
     ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);

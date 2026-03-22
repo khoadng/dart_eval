@@ -46,7 +46,36 @@ Variable compilePropertyAccess(
     return out;
   }
 
+  // Check extension getters
+  final extGetter = _resolveExtensionGetter(ctx, L, pa.propertyName.name);
+  if (extGetter != null) {
+    return extGetter;
+  }
+
   return L.getProperty(ctx, pa.propertyName.name);
+}
+
+Variable? _resolveExtensionGetter(
+  CompilerContext ctx,
+  Variable L,
+  String name,
+) {
+  for (final libEntry in ctx.extensionDeclarations.entries) {
+    for (final extEntry in libEntry.value.entries) {
+      final ext = extEntry.value;
+      if (!ext.appliesTo(ctx, L.type)) continue;
+
+      final offset = ext.getters[name];
+      if (offset == null) continue;
+
+      L.boxIfNeeded(ctx).pushArg(ctx);
+      ctx.pushOp(Call.make(offset), Call.length);
+      ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);
+
+      return Variable.alloc(ctx, CoreTypes.dynamic.ref(ctx));
+    }
+  }
+  return null;
 }
 
 Reference compilePropertyAccessAsReference(

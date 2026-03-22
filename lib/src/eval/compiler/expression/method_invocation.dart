@@ -29,11 +29,22 @@ Variable compileMethodInvocation(
 }) {
   Variable? L = cascadeTarget;
   var isPrefix = false;
+
   if (e.target != null && cascadeTarget == null) {
     try {
       L = compileExpression(e.target!, ctx);
     } on PrefixError {
       isPrefix = true;
+    } on CompileError {
+      // Check if target is an extension name for static method access
+      if (e.target is Identifier) {
+        final targetName = (e.target as Identifier).name;
+        final extResult = _resolveExtensionStaticMethod(
+          ctx, targetName, e,
+        );
+        if (extResult != null) return extResult;
+      }
+      rethrow;
     }
   }
 
@@ -66,13 +77,25 @@ Variable compileMethodInvocation(
     }
     return _invokeWithTarget(ctx, L, e);
   }
-  final method = isPrefix
-      ? compilePrefixedIdentifier(
-          (e.target as Identifier).name,
-          e.methodName.name,
-          ctx,
-        )
-      : compileIdentifier(e.methodName, ctx);
+  Variable method;
+  try {
+    method = isPrefix
+        ? compilePrefixedIdentifier(
+            (e.target as Identifier).name,
+            e.methodName.name,
+            ctx,
+          )
+        : compileIdentifier(e.methodName, ctx);
+  } on CompileError {
+    // In extension methods, unqualified method calls resolve through #this
+    if (ctx.inExtension && e.target == null) {
+      final $this = ctx.lookupLocal('#this');
+      if ($this != null) {
+        return _invokeWithTarget(ctx, $this, e);
+      }
+    }
+    rethrow;
+  }
 
   if (method.callingConvention == CallingConvention.dynamic ||
       (method.type == CoreTypes.function.ref(ctx) &&
@@ -316,7 +339,17 @@ Variable _invokeWithTarget(
     dec0 = resolveStaticMethod(ctx, staticType, e.methodName.name);
     isStatic = true;
   } else if (L.type != CoreTypes.dynamic.ref(ctx)) {
-    dec0 = resolveInstanceMethod(ctx, L.type, e.methodName.name, e);
+    CompileError? methodError;
+    try {
+      dec0 = resolveInstanceMethod(ctx, L.type, e.methodName.name, e);
+    } on CompileError catch (err) {
+      methodError = err;
+    }
+    if (dec0 == null) {
+      final extResult = _resolveExtensionMethod(ctx, L, e);
+      if (extResult != null) return extResult;
+      if (methodError != null) throw methodError;
+    }
     isStatic = false;
   } else {
     isStatic = false;
@@ -512,4 +545,63 @@ DeclarationOrBridge<ClassMember, BridgeDeclaration> resolveStaticMethod(
   }
 
   throw CompileError('Cannot find static method $classType.$methodName');
+}
+
+Variable? _resolveExtensionMethod(
+  CompilerContext ctx,
+  Variable L,
+  MethodInvocation e,
+) {
+  final methodName = e.methodName.name;
+
+  for (final libEntry in ctx.extensionDeclarations.entries) {
+    for (final extEntry in libEntry.value.entries) {
+      final ext = extEntry.value;
+      if (!ext.appliesTo(ctx, L.type)) continue;
+
+      final offset = ext.methods[methodName];
+      if (offset == null) continue;
+
+      // Push receiver as first arg
+      L.boxIfNeeded(ctx).pushArg(ctx);
+      // Push remaining args, all boxed (extension methods are like instance methods)
+      for (final arg in e.argumentList.arguments) {
+        compileExpression(arg, ctx).boxIfNeeded(ctx).pushArg(ctx);
+      }
+
+      ctx.pushOp(Call.make(offset), Call.length);
+      ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);
+
+      final returnType = ext.returnTypes[methodName] ??
+          CoreTypes.dynamic.ref(ctx);
+      return Variable.alloc(ctx, returnType.copyWith(boxed: true));
+    }
+  }
+  return null;
+}
+
+Variable? _resolveExtensionStaticMethod(
+  CompilerContext ctx,
+  String extName,
+  MethodInvocation e,
+) {
+  for (final libEntry in ctx.extensionDeclarations.entries) {
+    final ext = libEntry.value[extName];
+    if (ext == null) continue;
+
+    final offset = ext.statics[e.methodName.name];
+    if (offset == null) continue;
+
+    for (final arg in e.argumentList.arguments) {
+      compileExpression(arg, ctx).boxIfNeeded(ctx).pushArg(ctx);
+    }
+
+    ctx.pushOp(Call.make(offset), Call.length);
+    ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);
+
+    final returnType = ext.returnTypes[e.methodName.name] ??
+        CoreTypes.dynamic.ref(ctx);
+    return Variable.alloc(ctx, returnType.copyWith(boxed: true));
+  }
+  return null;
 }
