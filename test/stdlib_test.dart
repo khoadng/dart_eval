@@ -1170,5 +1170,42 @@ void main() {
         runtime.executeLib('package:example/main.dart', 'main');
       }, prints('150\n'));
     });
+
+    test('double + dynamic', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'example': {
+          'main.dart': '''
+            void main() {
+              var x = 1.5;
+              dynamic y = 2;
+              print(x + y);
+            }
+          ''',
+        },
+      });
+      expect(() {
+        runtime.executeLib('package:example/main.dart', 'main');
+      }, prints('3.5\n'));
+    });
+
+    test('num -= dynamic in loop', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'example': {
+          'main.dart': '''
+            void main() {
+              num x = 100;
+              List<dynamic> nums = [10, 20, 30];
+              for (final v in nums) {
+                x -= v;
+              }
+              print(x);
+            }
+          ''',
+        },
+      });
+      expect(() {
+        runtime.executeLib('package:example/main.dart', 'main');
+      }, prints('40\n'));
+    });
   });
 }
