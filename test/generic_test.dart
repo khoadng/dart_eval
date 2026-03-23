@@ -155,22 +155,23 @@ void main() {
       expect(runtime.executeLib('package:example/main.dart', 'main'), $int(42));
     });
 
-    test('generic function with bounded type parameter', skip: 'type args not specialized at call site', () {
+    test('generic function with bounded type parameter', () {
       final runtime = compiler.compileWriteAndLoad({
         'example': {
           'main.dart': '''
             T max2<T extends num>(T a, T b) => a > b ? a : b;
 
-            num main() {
-              return max2<int>(3, 7);
+            void main() {
+              final result = max2<int>(3, 7);
+              print(result);
             }
           ''',
         },
       });
 
       expect(
-        runtime.executeLib('package:example/main.dart', 'main'),
-        $num(7),
+        () => runtime.executeLib('package:example/main.dart', 'main'),
+        prints('7\n'),
       );
     });
 
@@ -191,7 +192,7 @@ void main() {
       expect(runtime.executeLib('package:example/main.dart', 'main'), 5);
     });
 
-    test('generic method on a class', skip: 'type args not specialized at call site', () {
+    test('generic method on a class', () {
       final runtime = compiler.compileWriteAndLoad({
         'example': {
           'main.dart': '''

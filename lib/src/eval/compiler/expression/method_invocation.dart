@@ -141,6 +141,7 @@ Variable compileMethodInvocation(
 
   final resolveGenerics = <String, TypeRef>{};
   var isConstructor = false;
+  var returnFromBoundedGeneric = false;
 
   if (dec0.isBridge) {
     final bridge = dec0.bridge;
@@ -187,6 +188,7 @@ Variable compileMethodInvocation(
       throw CompileError('Invalid declaration type ${dec.runtimeType}');
     }
 
+    final boundedTypeParams = <String>{};
     if (typeParams != null) {
       for (final param in typeParams) {
         final bound = param.bound;
@@ -197,6 +199,7 @@ Variable compileMethodInvocation(
             offset.file!,
             bound,
           );
+          boundedTypeParams.add(name);
         } else {
           resolveGenerics[name] = CoreTypes.dynamic.ref(ctx);
         }
@@ -215,9 +218,17 @@ Variable compileMethodInvocation(
     );
 
     if (returnAnnotation != null && returnAnnotation is NamedType) {
-      final g = resolveGenerics[returnAnnotation.name.value()];
+      final returnTypeName = returnAnnotation.name.value();
+      final g = resolveGenerics[returnTypeName];
       if (g != null) {
-        mReturnType = AlwaysReturnType(g, returnAnnotation.question != null);
+        // For bounded type params, the function body is compiled with
+        // T→bound and always returns a boxed value. Force the return
+        // type to be boxed so the call site doesn't try to unbox it.
+        returnFromBoundedGeneric = boundedTypeParams.contains(returnTypeName);
+        mReturnType = AlwaysReturnType(
+          returnFromBoundedGeneric ? g.copyWith(boxed: true) : g,
+          returnAnnotation.question != null,
+        );
       }
     }
     args = argsPair.first;
@@ -268,11 +279,15 @@ Variable compileMethodInvocation(
         namedArgTypes,
       ) ??
       AlwaysReturnType(CoreTypes.dynamic.ref(ctx), true);
-  final returnType = mReturnType.type?.copyWith(
-    boxed:
-        dec0.isBridge ||
-        !(mReturnType.type?.isUnboxedAcrossFunctionBoundaries ?? false),
-  );
+  // For bounded generic returns, the function body always returns boxed
+  // (compiled with T→bound). Preserve that boxing.
+  final returnType = returnFromBoundedGeneric
+      ? mReturnType.type
+      : mReturnType.type?.copyWith(
+          boxed:
+              dec0.isBridge ||
+              !(mReturnType.type?.isUnboxedAcrossFunctionBoundaries ?? false),
+        );
 
   // Attach type arguments for constructor returns
   var finalReturnType = returnType;
@@ -367,6 +382,44 @@ Variable _invokeWithTarget(
       before: [if (!isStatic) L],
       source: e,
     );
+
+    // Resolve method-level type parameters for return type
+    if (dec is MethodDeclaration) {
+      final methodTypeParams = dec.typeParameters?.typeParameters;
+      if (methodTypeParams != null) {
+        final explicitTypeArgs = e.typeArguments?.arguments;
+        final methodResolveGenerics = <String, TypeRef>{};
+        for (var i = 0; i < methodTypeParams.length; i++) {
+          final param = methodTypeParams[i];
+          final name = param.name.lexeme;
+          if (explicitTypeArgs != null && i < explicitTypeArgs.length) {
+            methodResolveGenerics[name] = TypeRef.fromAnnotation(
+              ctx,
+              ctx.library,
+              explicitTypeArgs[i],
+            );
+          } else {
+            final bound = param.bound;
+            if (bound != null) {
+              methodResolveGenerics[name] = TypeRef.fromAnnotation(
+                ctx,
+                (isStatic ? staticType! : L.type).file,
+                bound,
+              );
+            } else {
+              methodResolveGenerics[name] = CoreTypes.dynamic.ref(ctx);
+            }
+          }
+        }
+        final returnAnnotation = dec.returnType;
+        if (returnAnnotation != null && returnAnnotation is NamedType) {
+          final g = methodResolveGenerics[returnAnnotation.name.value()];
+          if (g != null) {
+            mReturnType = AlwaysReturnType(g, returnAnnotation.question != null);
+          }
+        }
+      }
+    }
   }
 
   final args = argsPair.first;
@@ -415,7 +468,7 @@ Variable _invokeWithTarget(
     ctx.pushOp(op, InvokeDynamic.len(op));
   }
 
-  mReturnType = AlwaysReturnType.fromInstanceMethodOrBuiltin(
+  mReturnType ??= AlwaysReturnType.fromInstanceMethodOrBuiltin(
     ctx,
     isStatic ? staticType! : L.type,
     e.methodName.name,
