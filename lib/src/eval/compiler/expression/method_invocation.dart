@@ -141,6 +141,7 @@ Variable compileMethodInvocation(
 
   final resolveGenerics = <String, TypeRef>{};
   var isConstructor = false;
+  var returnUsesRuntimeTypeArg = false;
 
   if (dec0.isBridge) {
     final bridge = dec0.bridge;
@@ -215,13 +216,43 @@ Variable compileMethodInvocation(
     );
 
     if (returnAnnotation != null && returnAnnotation is NamedType) {
-      final g = resolveGenerics[returnAnnotation.name.value()];
+      final returnParamName = returnAnnotation.name.value();
+      final g = resolveGenerics[returnParamName];
       if (g != null) {
         mReturnType = AlwaysReturnType(g, returnAnnotation.question != null);
+        // Caller-side re-boxing is only needed when the bound is num
+        // (boxed via BoxNum in the function body) but the concrete type
+        // is int/double (unboxed across function boundaries). For non-numeric
+        // bounds, both bound and concrete are boxed objects — no mismatch.
+        if (typeParams != null) {
+          for (final tp in typeParams) {
+            if (tp.name.lexeme == returnParamName && tp.bound != null) {
+              final boundType = TypeRef.fromAnnotation(
+                ctx, offset.file!, tp.bound!);
+              if (boundType == CoreTypes.num.ref(ctx)) {
+                returnUsesRuntimeTypeArg = true;
+              }
+              break;
+            }
+          }
+        }
       }
     }
     args = argsPair.first;
     namedArgs = argsPair.second;
+
+    // For constructor calls, push class-level type arg indices as hidden args
+    // so the constructor can set reified type args on the instance.
+    if (isConstructor && !dec0.isBridge) {
+      final constructorDec = dec0.declaration as ConstructorDeclaration;
+      final classDec = constructorDec.parent;
+      final classTypeParams = classDec is ClassDeclaration
+          ? classDec.typeParameters?.typeParameters
+          : null;
+      if (classTypeParams != null && classTypeParams.isNotEmpty) {
+        pushClassTypeArgs(ctx, classTypeParams, e.typeArguments?.arguments);
+      }
+    }
   }
 
   final argTypes = args.map((e) => e.type).toList();
@@ -274,11 +305,46 @@ Variable compileMethodInvocation(
         !(mReturnType.type?.isUnboxedAcrossFunctionBoundaries ?? false),
   );
 
+  // Attach type arguments for constructor returns
+  var finalReturnType = returnType;
+  if (isConstructor && finalReturnType != null && e.typeArguments != null) {
+    final specifiedArgs = e.typeArguments!.arguments
+        .map((a) => TypeRef.fromAnnotation(ctx, ctx.library, a))
+        .toList();
+    if (specifiedArgs.isNotEmpty) {
+      finalReturnType = finalReturnType.copyWith(
+        specifiedTypeArgs: specifiedArgs,
+      );
+    }
+  }
+
+  // For bounded generic returns, the function body boxes as the bound
+  // (e.g., BoxNum for T extends num). The caller knows the concrete type,
+  // so re-box here: Unbox strips the bound wrapper, then box as concrete.
+  if (returnUsesRuntimeTypeArg) {
+    finalReturnType = mReturnType.type?.copyWith(boxed: true);
+  }
+
   final v = Variable.alloc(
     ctx,
-    returnType ?? CoreTypes.dynamic.ref(ctx),
-    concreteTypes: [if (isConstructor && returnType != null) returnType],
+    finalReturnType ?? CoreTypes.dynamic.ref(ctx),
+    concreteTypes: [
+      if (isConstructor && finalReturnType != null) finalReturnType,
+    ],
   );
+
+  if (returnUsesRuntimeTypeArg && mReturnType.type != null) {
+    // Unbox the bound-typed value, then re-box as the concrete type
+    ctx.pushOp(Unbox.make(v.scopeFrameOffset), Unbox.LEN);
+    final concreteType = mReturnType.type!;
+    if (concreteType == CoreTypes.int.ref(ctx)) {
+      ctx.pushOp(BoxInt.make(v.scopeFrameOffset), BoxInt.LEN);
+    } else if (concreteType == CoreTypes.double.ref(ctx)) {
+      ctx.pushOp(BoxDouble.make(v.scopeFrameOffset), BoxDouble.LEN);
+    } else {
+      ctx.pushOp(BoxNum.make(v.scopeFrameOffset), BoxNum.LEN);
+    }
+  }
 
   return v;
 }
@@ -352,6 +418,55 @@ Variable _invokeWithTarget(
       before: [if (!isStatic) L],
       source: e,
     );
+
+    // Push class type args for constructor calls via static dispatch
+    if (isStatic && dec is ConstructorDeclaration) {
+      final classDec = dec.parent;
+      final classTypeParams = classDec is ClassDeclaration
+          ? classDec.typeParameters?.typeParameters
+          : null;
+      if (classTypeParams != null && classTypeParams.isNotEmpty) {
+        pushClassTypeArgs(ctx, classTypeParams, e.typeArguments?.arguments);
+      }
+    }
+
+    // Resolve method-level type parameters for return type
+    if (dec is MethodDeclaration) {
+      final methodTypeParams = dec.typeParameters?.typeParameters;
+      if (methodTypeParams != null) {
+        final explicitTypeArgs = e.typeArguments?.arguments;
+        final methodResolveGenerics = <String, TypeRef>{};
+        for (var i = 0; i < methodTypeParams.length; i++) {
+          final param = methodTypeParams[i];
+          final name = param.name.lexeme;
+          if (explicitTypeArgs != null && i < explicitTypeArgs.length) {
+            methodResolveGenerics[name] = TypeRef.fromAnnotation(
+              ctx,
+              ctx.library,
+              explicitTypeArgs[i],
+            );
+          } else {
+            final bound = param.bound;
+            if (bound != null) {
+              methodResolveGenerics[name] = TypeRef.fromAnnotation(
+                ctx,
+                (isStatic ? staticType! : L.type).file,
+                bound,
+              );
+            } else {
+              methodResolveGenerics[name] = CoreTypes.dynamic.ref(ctx);
+            }
+          }
+        }
+        final returnAnnotation = dec.returnType;
+        if (returnAnnotation != null && returnAnnotation is NamedType) {
+          final g = methodResolveGenerics[returnAnnotation.name.value()];
+          if (g != null) {
+            mReturnType = AlwaysReturnType(g, returnAnnotation.question != null);
+          }
+        }
+      }
+    }
   }
 
   final args = argsPair.first;
@@ -400,7 +515,7 @@ Variable _invokeWithTarget(
     ctx.pushOp(op, InvokeDynamic.len(op));
   }
 
-  mReturnType = AlwaysReturnType.fromInstanceMethodOrBuiltin(
+  mReturnType ??= AlwaysReturnType.fromInstanceMethodOrBuiltin(
     ctx,
     isStatic ? staticType! : L.type,
     e.methodName.name,

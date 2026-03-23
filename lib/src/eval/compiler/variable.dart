@@ -105,10 +105,13 @@ class Variable {
         v2 = boxListContents(ctx, this);
       }
       ctx.pushOp(BoxList.make(v2.scopeFrameOffset), BoxList.LEN);
+      _emitSetTypeArgs(ctx, type, v2.scopeFrameOffset);
     } else if (type == CoreTypes.map.ref(ctx)) {
       ctx.pushOp(BoxMap.make(scopeFrameOffset), BoxMap.LEN);
+      _emitSetTypeArgs(ctx, type, scopeFrameOffset);
     } else if (type == CoreTypes.set.ref(ctx)) {
       ctx.pushOp(BoxSet.make(scopeFrameOffset), BoxSet.LEN);
+      _emitSetTypeArgs(ctx, type, scopeFrameOffset);
     } else if (type == CoreTypes.string.ref(ctx)) {
       ctx.pushOp(BoxString.make(scopeFrameOffset), BoxString.LEN);
     } else if (type == CoreTypes.nullType.ref(ctx)) {
@@ -300,6 +303,24 @@ class Variable {
         '${methodOffset == null ? '' : 'method: $methodReturnType $methodOffset, '}'
         '${boxed ? 'boxed' : 'unboxed'}, F[$frameIndex]}';
   }
+}
+
+/// After boxing a collection, push type arg indices onto the stack and
+/// emit PopSetTypeArgs to attach them to the boxed wrapper.
+void _emitSetTypeArgs(CompilerContext ctx, TypeRef type, int reg) {
+  if (type.specifiedTypeArgs.isEmpty) return;
+  ctx.beginAllocScope();
+  final startSlot = ctx.scopeFrameOffset;
+  for (final typeArg in type.specifiedTypeArgs) {
+    final typeIdx = ctx.typeRefIndexMap[typeArg] ?? -1;
+    BuiltinValue(intval: typeIdx).push(ctx);
+  }
+  ctx.pushOp(
+    PushInstanceTypeArgs.make(startSlot, type.specifiedTypeArgs.length),
+    PushInstanceTypeArgs.LEN,
+  );
+  ctx.pushOp(PopSetTypeArgs.make(reg), PopSetTypeArgs.LEN);
+  ctx.endAllocScope();
 }
 
 class InvokeResult {

@@ -1,7 +1,7 @@
 part of 'collection.dart';
 
 /// dart_eval bimodal wrapper for [Map]
-class $Map<K, V> implements Map<K, V>, $Instance {
+class $Map<K, V> with $TypedInstance implements Map<K, V>, $Instance {
   /// Wrap a [Map] in a [$Map]
   $Map.wrap(this.$value);
 

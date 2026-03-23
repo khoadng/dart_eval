@@ -53,6 +53,16 @@ Variable compileInstanceCreation(
     );
     //_args = argsPair.first;
     //_namedArgs = argsPair.second;
+
+    // Push reified type args onto the instanceTypeArgStack.
+    // CreateClass consumes them when creating the instance.
+    final classDecl = dec.parent;
+    final classTypeParams = classDecl is ClassDeclaration
+        ? classDecl.typeParameters?.typeParameters
+        : null;
+    if (classTypeParams != null && classTypeParams.isNotEmpty) {
+      pushClassTypeArgs(ctx, classTypeParams, type.typeArguments?.arguments);
+    }
   }
 
   //final _argTypes = _args.map((e) => e.type).toList();
@@ -91,8 +101,15 @@ Variable compileInstanceCreation(
     ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);
   }
 
-  return Variable.alloc(
-    ctx,
-    $resolved.concreteTypes.first.copyWith(boxed: true),
-  );
+  // Attach type arguments so field access can resolve generic types
+  var resultType = $resolved.concreteTypes.first;
+  final typeArgAnnotations = type.typeArguments?.arguments;
+  if (typeArgAnnotations != null && typeArgAnnotations.isNotEmpty) {
+    final specifiedArgs = typeArgAnnotations
+        .map((a) => TypeRef.fromAnnotation(ctx, ctx.library, a))
+        .toList();
+    resultType = resultType.copyWith(specifiedTypeArgs: specifiedArgs);
+  }
+
+  return Variable.alloc(ctx, resultType.copyWith(boxed: true));
 }

@@ -22,6 +22,49 @@ Pair<List<Variable>, Map<String, Variable>> compileArgumentList(
   List<String> superParams = const [],
   AstNode? source,
 }) {
+  // Load type params so argument boxing matches constructor expectations.
+  // Constructor is compiled once with T→dynamic(boxed), so arguments must
+  // also resolve T→dynamic(boxed) to maintain boxing consistency.
+  ctx.pushTemporaryTypes(decLibrary);
+  if (parameterHost is ConstructorDeclaration) {
+    final $class = parameterHost.parent as NamedCompilationUnitMember;
+    if ($class is ClassDeclaration) {
+      TypeRef.loadTemporaryTypes(
+        ctx,
+        $class.typeParameters?.typeParameters,
+        decLibrary,
+      );
+    }
+  } else if (parameterHost is FunctionDeclaration) {
+    TypeRef.loadTemporaryTypes(
+      ctx,
+      parameterHost.functionExpression.typeParameters?.typeParameters,
+      decLibrary,
+    );
+  } else if (parameterHost is MethodDeclaration) {
+    // Load class-level type params from the method's parent class,
+    // not ctx.currentClass (which is null at external call sites).
+    final methodParent = parameterHost.parent;
+    if (methodParent is ClassDeclaration) {
+      TypeRef.loadTemporaryTypes(
+        ctx,
+        methodParent.typeParameters?.typeParameters,
+        decLibrary,
+      );
+    } else if (ctx.currentClass case final ClassDeclaration cls) {
+      TypeRef.loadTemporaryTypes(
+        ctx,
+        cls.typeParameters?.typeParameters,
+        decLibrary,
+      );
+    }
+    TypeRef.loadTemporaryTypes(
+      ctx,
+      parameterHost.typeParameters?.typeParameters,
+      decLibrary,
+    );
+  }
+
   final args = <Variable>[];
   final push = <Variable>[];
   final namedArgs = <String, Variable>{};
@@ -230,6 +273,8 @@ Pair<List<Variable>, Map<String, Variable>> compileArgumentList(
     final argOp = PushArg.make(restArg.scopeFrameOffset);
     ctx.pushOp(argOp, PushArg.LEN);
   }
+
+  ctx.popTemporaryTypes(decLibrary);
 
   return Pair(args, namedArgs);
 }
@@ -583,6 +628,51 @@ Pair<List<Variable>, Map<String, Variable>> compileArgumentListWithBridge(
   }
 
   return Pair(args, namedArgs);
+}
+
+/// Push reified class-level type arg indices as hidden args for a constructor
+/// call. The constructor body copies these onto the instance via
+/// SetInstanceTypeArgs.
+///
+/// [classTypeParams] — the type parameter list from the ClassDeclaration.
+/// [explicitTypeArgs] — explicit type arguments at the call site (e.g.,
+///   `Box<int>(...)`), or null if none were provided.
+/// Push reified type arg indices onto [Runtime.instanceTypeArgStack].
+/// [CreateClass] consumes them when creating the instance.
+/// This is the single path for all instance creation sites.
+void pushClassTypeArgs(
+  CompilerContext ctx,
+  List<TypeParameter> classTypeParams,
+  List<TypeAnnotation>? explicitTypeArgs,
+) {
+  final startSlot = ctx.scopeFrameOffset;
+  for (var i = 0; i < classTypeParams.length; i++) {
+    final paramName = classTypeParams[i].name.lexeme;
+    if (explicitTypeArgs != null && i < explicitTypeArgs.length) {
+      final argType = TypeRef.fromAnnotation(
+        ctx, ctx.library, explicitTypeArgs[i]);
+      final typeIdx = ctx.typeRefIndexMap[argType] ?? -1;
+      BuiltinValue(intval: typeIdx).push(ctx);
+    } else {
+      // Forward from enclosing scope (e.g., factory → inner constructor)
+      final inherited = ctx.lookupLocal('#typeArg_$paramName');
+      if (inherited != null) {
+        // Copy inherited value to a new slot so PushInstanceTypeArgs
+        // can read consecutive slots
+        final copy = BuiltinValue(intval: 0).push(ctx);
+        ctx.pushOp(
+          CopyValue.make(copy.scopeFrameOffset, inherited.scopeFrameOffset),
+          CopyValue.LEN,
+        );
+      } else {
+        BuiltinValue(intval: -1).push(ctx);
+      }
+    }
+  }
+  ctx.pushOp(
+    PushInstanceTypeArgs.make(startSlot, classTypeParams.length),
+    PushInstanceTypeArgs.LEN,
+  );
 }
 
 TypeRef _resolveFieldFormalType(

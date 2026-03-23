@@ -487,6 +487,7 @@ void compileDefaultConstructor(
   );
 
   final isEnum = parent is EnumDeclaration;
+
   ctx.beginAllocScope(existingAllocLen: isEnum ? 2 : 0);
   ctx.scopeFrameOffset += isEnum ? 2 : 0;
 

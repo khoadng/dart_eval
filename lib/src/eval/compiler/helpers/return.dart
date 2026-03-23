@@ -6,6 +6,7 @@ import 'package:dart_eval/src/eval/compiler/type.dart';
 import 'package:dart_eval/src/eval/compiler/variable.dart';
 import 'package:dart_eval/src/eval/runtime/runtime.dart';
 
+
 StatementInfo doReturn(
   CompilerContext ctx,
   AlwaysReturnType expectedReturnType,
@@ -68,6 +69,7 @@ StatementInfo doReturn(
     if (!value0.type.isAssignableTo(ctx, expected)) {
       throw CompileError('Cannot return ${value0.type} (expected: $expected)');
     }
+
     if (expected.isUnboxedAcrossFunctionBoundaries &&
         // Return types must be boxed when returning from instance methods, even if
         // the return type can be unboxed across function boundaries, because

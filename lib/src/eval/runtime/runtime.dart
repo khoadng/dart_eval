@@ -504,6 +504,12 @@ class Runtime {
         return [Evc.OP_BOXDOUBLE, ...Evc.i16b(op._reg)];
       case BoxNum op:
         return [Evc.OP_BOXNUM, ...Evc.i16b(op._reg)];
+      case PushInstanceTypeArgs op:
+        return [Evc.OP_PUSH_INSTANCE_TYPE_ARGS, ...Evc.i16b(op._startReg), ...Evc.i16b(op._count)];
+      case IsTypeGeneric op:
+        return [Evc.OP_IS_TYPE_GENERIC, ...Evc.i16b(op._objectOffset), ...Evc.i32b(op._type), if (op._not) 1 else 0, ...Evc.i16b(op._typeArgStart), ...Evc.i16b(op._typeArgCount)];
+      case PopSetTypeArgs op:
+        return [Evc.OP_POP_SET_TYPE_ARGS, ...Evc.i16b(op._reg)];
       case PushArg op:
         return [Evc.OP_PUSH_ARG, ...Evc.i16b(op._location)];
       case JumpIfNonNull op:
@@ -780,6 +786,11 @@ class Runtime {
 
   /// Last return value from a catch block
   Object? returnFromCatch;
+
+  /// Stack of reified type arg lists for generic instance creation.
+  /// Callers push type args before Call; CreateClass pops them.
+  /// Stack ensures proper nesting for constructors that call other constructors.
+  final instanceTypeArgStack = <List<int>>[];
 
   /// [frameOffset]s for each stack frame
   final frameOffsetStack = <int>[0];

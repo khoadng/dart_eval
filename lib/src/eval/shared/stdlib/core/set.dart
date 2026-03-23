@@ -1,7 +1,7 @@
 part of 'collection.dart';
 
 /// dart_eval bimodal wrapper for [Set]
-class $Set<E> implements Set<E>, $Instance {
+class $Set<E> with $TypedInstance implements Set<E>, $Instance {
   /// Wrap a [Set] in a [$Set]
   $Set.wrap(this.$value);
 

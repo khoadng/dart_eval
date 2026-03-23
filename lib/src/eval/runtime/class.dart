@@ -36,8 +36,14 @@ abstract class $Instance implements $Value {
   void $setProperty(Runtime runtime, String identifier, $Value value);
 }
 
+/// Mixin for instances that carry reified type arguments.
+mixin $TypedInstance {
+  /// Reified type argument indices. Empty for non-generic instances.
+  List<int> typeArgs = const [];
+}
+
 /// Usually an instance of a class defined inside the evaluated code.
-class $InstanceImpl implements $Instance {
+class $InstanceImpl with $TypedInstance implements $Instance {
   /// Class type. For signature definitions and implementations of methods
   /// and fields.
   final EvalClass evalClass;

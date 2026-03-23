@@ -230,6 +230,15 @@ class Evc {
   /// [PushFunctionPtrCopyCapture]
   static const OP_PUSH_FUNCTION_PTR_COPY_CAPTURE = 73;
 
+  /// [PushInstanceTypeArgs] Push type args onto instanceTypeArgStack
+  static const OP_PUSH_INSTANCE_TYPE_ARGS = 74;
+
+  /// [IsTypeGeneric] Type check with generic type arg comparison
+  static const OP_IS_TYPE_GENERIC = 75;
+
+  /// [PopSetTypeArgs] Pop type args from stack onto instance
+  static const OP_POP_SET_TYPE_ARGS = 76;
+
   static List<int> i16b(int i16) {
     final x = ByteData(2);
     x.setInt16(0, i16);
@@ -347,4 +356,7 @@ final List<OpLoader> ops = [
   (Runtime rt) => SetAdd(rt), // 71
   (Runtime rt) => BoxSet(rt), // 72
   (Runtime rt) => PushFunctionPtrCopyCapture(rt), // 73
+  (Runtime rt) => PushInstanceTypeArgs(rt), // 74
+  (Runtime rt) => IsTypeGeneric(rt), // 75
+  (Runtime rt) => PopSetTypeArgs(rt), // 76
 ];

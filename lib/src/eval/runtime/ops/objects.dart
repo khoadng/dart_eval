@@ -202,12 +202,72 @@ class CreateClass implements EvcOp {
     final $cls = runtime.declaredClasses[_library]![_name]!;
 
     final instance = $InstanceImpl($cls, $super, List.filled(_valuesLen, null));
+    // Consume reified type args from the stack (pushed by caller)
+    if (runtime.instanceTypeArgStack.isNotEmpty) {
+      instance.typeArgs = runtime.instanceTypeArgStack.removeLast();
+    }
     runtime.frame[runtime.frameOffset++] = instance;
   }
 
   @override
   String toString() =>
       'CreateClass (F$_library:"$_name", super L$_super, vLen=$_valuesLen))';
+}
+
+/// Pushes reified type arg indices from frame slots onto
+/// [Runtime.instanceTypeArgStack]. [CreateClass] consumes them.
+/// This decouples type arg passing from the calling convention —
+/// callers push type args before Call, CreateClass pops them internally.
+class PushInstanceTypeArgs implements EvcOp {
+  PushInstanceTypeArgs(Runtime runtime)
+    : _startReg = runtime._readInt16(),
+      _count = runtime._readInt16();
+
+  PushInstanceTypeArgs.make(this._startReg, this._count);
+
+  final int _startReg;
+  final int _count;
+
+  static const int LEN = Evc.BASE_OPLEN + Evc.I16_LEN * 2;
+
+  @override
+  void run(Runtime runtime) {
+    final args = <int>[];
+    for (var i = 0; i < _count; i++) {
+      args.add(runtime.frame[_startReg + i] as int);
+    }
+    runtime.instanceTypeArgStack.add(args);
+  }
+
+  @override
+  String toString() =>
+      'PushInstanceTypeArgs (from L$_startReg, count=$_count)';
+}
+
+/// Pops type args from [Runtime.instanceTypeArgStack] and sets them on
+/// the [$TypedInstance] at the given frame slot.
+class PopSetTypeArgs implements EvcOp {
+  PopSetTypeArgs(Runtime runtime) : _reg = runtime._readInt16();
+
+  PopSetTypeArgs.make(this._reg);
+
+  final int _reg;
+
+  static const int LEN = Evc.BASE_OPLEN + Evc.I16_LEN;
+
+  @override
+  void run(Runtime runtime) {
+    if (runtime.instanceTypeArgStack.isNotEmpty) {
+      final instance = runtime.frame[_reg];
+      if (instance is $TypedInstance) {
+        (instance as $TypedInstance).typeArgs =
+            runtime.instanceTypeArgStack.removeLast();
+      }
+    }
+  }
+
+  @override
+  String toString() => 'PopSetTypeArgs (L$_reg)';
 }
 
 class SetObjectProperty implements EvcOp {
@@ -412,6 +472,78 @@ class IsType implements EvcOp {
 
   @override
   String toString() => 'IsType (L$_objectOffset is${_not ? '!' : ''} $_type)';
+}
+
+/// Like [IsType] but also checks reified type arguments on the instance.
+/// Expected type arg indices are read from consecutive frame slots.
+class IsTypeGeneric implements EvcOp {
+  IsTypeGeneric(Runtime runtime)
+    : _objectOffset = runtime._readInt16(),
+      _type = runtime._readInt32(),
+      _not = runtime._readUint8() > 0,
+      _typeArgStart = runtime._readInt16(),
+      _typeArgCount = runtime._readInt16();
+
+  IsTypeGeneric.make(
+    this._objectOffset,
+    this._type,
+    this._not,
+    this._typeArgStart,
+    this._typeArgCount,
+  );
+
+  final int _objectOffset;
+  final int _type;
+  final bool _not;
+  final int _typeArgStart;
+  final int _typeArgCount;
+
+  static int length =
+      Evc.BASE_OPLEN + Evc.I16_LEN * 3 + Evc.I32_LEN + Evc.I8_LEN;
+
+  @override
+  void run(Runtime runtime) {
+    final value = runtime.frame[_objectOffset] as $Value;
+    final type = value.$getRuntimeType(runtime);
+
+    // First check the base type
+    bool baseMatch;
+    if (type < 0) {
+      baseMatch = type == _type;
+    } else {
+      baseMatch = runtime.typeTypes[type].contains(_type);
+    }
+
+    if (!baseMatch) {
+      runtime.frame[runtime.frameOffset++] = _not ? true : false;
+      return;
+    }
+
+    // Base type matches — now check type args if the instance has them
+    if (_typeArgCount > 0 && value is $TypedInstance) {
+      final instanceArgs = (value as $TypedInstance).typeArgs;
+      if (instanceArgs.length >= _typeArgCount) {
+        for (var i = 0; i < _typeArgCount; i++) {
+          final expectedIdx = runtime.frame[_typeArgStart + i] as int;
+          if (expectedIdx < 0) continue; // dynamic — matches anything
+          final actualIdx = instanceArgs[i];
+          // Check if actual type is or extends expected type
+          if (actualIdx != expectedIdx &&
+              !runtime.typeTypes[actualIdx].contains(expectedIdx)) {
+            runtime.frame[runtime.frameOffset++] = _not ? true : false;
+            return;
+          }
+        }
+      }
+    }
+
+    runtime.frame[runtime.frameOffset++] = _not ? false : true;
+  }
+
+  @override
+  String toString() =>
+      'IsTypeGeneric (L$_objectOffset is${_not ? '!' : ''} $_type, '
+      'typeArgs L$_typeArgStart count=$_typeArgCount)';
 }
 
 class PushRuntimeType implements EvcOp {

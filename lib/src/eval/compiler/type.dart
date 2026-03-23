@@ -149,11 +149,16 @@ class TypeRef {
   }
 
   /// Create a [TypeRef] from a [TypeAnnotation] and library ID.
+  ///
+  /// [typeSubstitutions] maps generic type param names to concrete types.
+  /// Substituted types are returned boxed because generic fields are stored
+  /// boxed at runtime (constructor compiled once with T→dynamic).
   factory TypeRef.fromAnnotation(
     CompilerContext ctx,
     int library,
-    TypeAnnotation typeAnnotation,
-  ) {
+    TypeAnnotation typeAnnotation, {
+    Map<String, TypeRef>? typeSubstitutions,
+  }) {
     if (typeAnnotation is GenericFunctionType) {
       return CoreTypes.function.ref(ctx);
     }
@@ -205,6 +210,16 @@ class TypeRef {
     }
     typeAnnotation as NamedType;
     final n = typeAnnotation.name.stringValue ?? typeAnnotation.name.value();
+
+    // Check substitution map first (for generic type params like T, A, B).
+    // Always boxed: generic fields are stored boxed at runtime.
+    if (typeSubstitutions != null && typeSubstitutions.containsKey(n)) {
+      return typeSubstitutions[n]!.copyWith(
+        boxed: true,
+        nullable: typeAnnotation.question != null,
+      );
+    }
+
     final unspecifiedType =
         ctx.temporaryTypes[library]?[n] ?? ctx.visibleTypes[library]?[n];
     if (unspecifiedType == null) {
@@ -219,7 +234,14 @@ class TypeRef {
     if (typeArgs != null) {
       final resolved = <TypeRef>[];
       for (final arg in typeArgs.arguments) {
-        resolved.add(TypeRef.fromAnnotation(ctx, library, arg));
+        resolved.add(
+          TypeRef.fromAnnotation(
+            ctx,
+            library,
+            arg,
+            typeSubstitutions: typeSubstitutions,
+          ),
+        );
       }
       return unspecifiedType.copyWith(
         specifiedTypeArgs: resolved,
@@ -395,10 +417,14 @@ class TypeRef {
     bool forFieldFormal = false,
     bool forSet = false,
     AstNode? source,
+    Map<String, TypeRef>? typeSubstitutions,
   }) {
     if ($class == CoreTypes.dynamic.ref(ctx)) {
       return null;
     }
+    // Build substitution map from class's specifiedTypeArgs if available
+    final subs = typeSubstitutions ?? buildTypeSubstitutions(ctx, $class);
+
     final f = getKnownFields(ctx)[$class];
     if (f != null) {
       final d = f[field];
@@ -434,7 +460,12 @@ class TypeRef {
           if (annotation == null) {
             return null;
           }
-          return TypeRef.fromAnnotation(ctx, $class.file, annotation);
+          return TypeRef.fromAnnotation(
+            ctx,
+            $class.file,
+            annotation,
+            typeSubstitutions: subs,
+          );
         }
       }
       if ($declarations.containsKey(field)) {
@@ -454,6 +485,7 @@ class TypeRef {
             ctx,
             $class.file,
             annotation,
+            typeSubstitutions: subs,
           ).copyWith(boxed: true);
         }
         if (ctx.inferredFieldTypes.containsKey($class.file) &&
@@ -476,7 +508,12 @@ class TypeRef {
         if (annotation == null) {
           return null;
         }
-        return TypeRef.fromAnnotation(ctx, $class.file, annotation);
+        return TypeRef.fromAnnotation(
+          ctx,
+          $class.file,
+          annotation,
+          typeSubstitutions: subs,
+        );
       }
     }
     final dec = ctx.topLevelDeclarationsMap[$class.file]![$class.name]!;
@@ -1034,6 +1071,28 @@ class TypeRef {
     }
   }
 
+  /// Build {T: int} from class's genericParams + specifiedTypeArgs.
+  static Map<String, TypeRef>? buildTypeSubstitutions(
+    CompilerContext ctx,
+    TypeRef $class,
+  ) {
+    final dec =
+        ctx.topLevelDeclarationsMap[$class.file]?[$class.name]?.declaration;
+    if (dec is! ClassDeclaration) return null;
+    final typeParams = dec.typeParameters?.typeParameters;
+    if (typeParams == null || typeParams.isEmpty) return null;
+    if ($class.specifiedTypeArgs.isEmpty) return null;
+    final map = <String, TypeRef>{};
+    for (
+      var i = 0;
+      i < typeParams.length && i < $class.specifiedTypeArgs.length;
+      i++
+    ) {
+      map[typeParams[i].name.lexeme] = $class.specifiedTypeArgs[i];
+    }
+    return map;
+  }
+
   static void loadTemporaryTypes(
     CompilerContext ctx,
     List<TypeParameter>? typeParams, [
@@ -1105,12 +1164,18 @@ class AlwaysReturnType implements ReturnType {
     CompilerContext ctx,
     int library,
     TypeAnnotation? typeAnnotation,
-    TypeRef? fallback,
-  ) {
+    TypeRef? fallback, {
+    Map<String, TypeRef>? typeSubstitutions,
+  }) {
     final rt = typeAnnotation;
     if (rt != null) {
       return AlwaysReturnType(
-        TypeRef.fromAnnotation(ctx, library, rt),
+        TypeRef.fromAnnotation(
+          ctx,
+          library,
+          rt,
+          typeSubstitutions: typeSubstitutions,
+        ),
         rt.question != null,
       );
     } else {
@@ -1131,11 +1196,13 @@ class AlwaysReturnType implements ReturnType {
         true,
       );
     }
+    final subs = TypeRef.buildTypeSubstitutions(ctx, type);
     return AlwaysReturnType.fromAnnotation(
       ctx,
       type.file,
       m.declaration!.returnType,
       fallback,
+      typeSubstitutions: subs,
     );
   }
 

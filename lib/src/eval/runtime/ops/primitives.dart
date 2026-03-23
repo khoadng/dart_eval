@@ -325,9 +325,7 @@ class BoxMap implements EvcOp {
   @override
   void run(Runtime runtime) {
     final reg = _reg;
-    runtime.frame[reg] = $Map.wrap(<$Value, $Value>{
-      ...(runtime.frame[reg] as Map),
-    });
+    runtime.frame[reg] = $Map.wrap(<$Value, $Value>{...(runtime.frame[reg] as Map)});
   }
 
   @override

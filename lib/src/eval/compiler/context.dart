@@ -186,7 +186,27 @@ class CompilerContext with ScopeContext {
   late OffsetTracker offsetTracker = OffsetTracker(this);
   Map<int, Map<String, TypeRef>> visibleTypes = {};
   Map<int, Map<String, TypeRef>> temporaryTypes = {};
+  final List<Map<int, Map<String, TypeRef>?>> _tempTypeStack = [];
   Map<int, Map<String, DeclarationOrPrefix>> visibleDeclarations = {};
+
+  /// Save temporaryTypes for a library onto a stack. Use with [popTemporaryTypes].
+  void pushTemporaryTypes(int lib) {
+    _tempTypeStack.add({
+      lib: temporaryTypes[lib] != null
+          ? Map<String, TypeRef>.of(temporaryTypes[lib]!)
+          : null,
+    });
+  }
+
+  /// Restore temporaryTypes for a library from the stack.
+  void popTemporaryTypes(int lib) {
+    final saved = _tempTypeStack.removeLast()[lib];
+    if (saved != null) {
+      temporaryTypes[lib] = saved;
+    } else {
+      temporaryTypes[lib]?.clear();
+    }
+  }
   Map<int, Map<String, int>> topLevelDeclarationPositions = {};
   Map<int, Map<String, int>> bridgeStaticFunctionIndices = {};
   Map<int, Map<String, List>> instanceDeclarationPositions = {};
@@ -207,6 +227,7 @@ class CompilerContext with ScopeContext {
   List<ContextSaveState> typeUninferenceSaveStates = [];
   List<CompilerLabel> labels = [];
   Map<CompilerLabel, Set<int>> labelReferences = {};
+
   final List<Variable> caughtExceptions = [];
   PrescanContext? preScan;
   int nearestAsyncFrame = -1;

@@ -47,6 +47,8 @@ void compileFunctionDeclaration(FunctionDeclaration d, CompilerContext ctx) {
     );
   }
 
+  final typeParams = d.functionExpression.typeParameters?.typeParameters;
+
   final existingAllocs =
       d.functionExpression.parameters?.parameters.length ?? 0;
   ctx.beginAllocScope(existingAllocLen: existingAllocs);
@@ -62,7 +64,7 @@ void compileFunctionDeclaration(FunctionDeclaration d, CompilerContext ctx) {
 
   TypeRef.loadTemporaryTypes(
     ctx,
-    d.functionExpression.typeParameters?.typeParameters,
+    typeParams,
   );
 
   for (final param in resolvedParams) {

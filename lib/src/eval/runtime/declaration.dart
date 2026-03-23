@@ -92,6 +92,9 @@ class EvalClassClass implements EvalClass {
   Never get $value => throw UnimplementedError();
 
   @override
+  List<int> typeArgs = const [];
+
+  @override
   int get delegatedType => throw UnimplementedError();
 
   @override
