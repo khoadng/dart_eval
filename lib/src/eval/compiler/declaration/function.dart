@@ -60,76 +60,79 @@ void compileFunctionDeclaration(FunctionDeclaration d, CompilerContext ctx) {
 
   var i = 0;
 
-  TypeRef.loadTemporaryTypes(
-    ctx,
-    d.functionExpression.typeParameters?.typeParameters,
-  );
+  final fnTypeParams = d.functionExpression.typeParameters?.typeParameters;
+  TypeRef.loadTemporaryTypes(ctx, fnTypeParams);
+  if (fnTypeParams != null && fnTypeParams.isNotEmpty) {
+    ctx.currentMethodTypeParams = [for (final p in fnTypeParams) p.name.lexeme];
+  }
+  try {
+    for (final param in resolvedParams) {
+      final p = param.parameter;
+      Variable vRep;
 
-  for (final param in resolvedParams) {
-    final p = param.parameter;
-    Variable vRep;
+      p as SimpleFormalParameter;
+      var type = CoreTypes.dynamic.ref(ctx);
+      if (p.type != null) {
+        type = TypeRef.fromAnnotation(ctx, ctx.library, p.type!);
+      }
+      vRep = Variable(
+        i,
+        type.copyWith(boxed: !type.isUnboxedAcrossFunctionBoundaries),
+      )..name = p.name!.lexeme;
 
-    p as SimpleFormalParameter;
-    var type = CoreTypes.dynamic.ref(ctx);
-    if (p.type != null) {
-      type = TypeRef.fromAnnotation(ctx, ctx.library, p.type!);
+      ctx.setLocal(vRep.name!, vRep);
+
+      i++;
     }
-    vRep = Variable(
-      i,
-      type.copyWith(boxed: !type.isUnboxedAcrossFunctionBoundaries),
-    )..name = p.name!.lexeme;
 
-    ctx.setLocal(vRep.name!, vRep);
+    final b = d.functionExpression.body;
 
-    i++;
-  }
-
-  final b = d.functionExpression.body;
-
-  if (b.isAsynchronous) {
-    setupAsyncFunction(ctx);
-  }
-
-  final expectedReturnType = AlwaysReturnType.fromAnnotation(
-    ctx,
-    ctx.library,
-    d.returnType,
-    CoreTypes.dynamic.ref(ctx),
-  );
-  StatementInfo? stInfo;
-  if (b is BlockFunctionBody) {
-    stInfo = compileBlock(
-      b.block,
-      expectedReturnType,
-      ctx,
-      name: '${d.name.lexeme}()',
-    );
-  } else if (b is ExpressionFunctionBody) {
-    ctx.beginAllocScope();
-    stInfo = doReturn(
-      ctx,
-      expectedReturnType,
-      compileExpression(b.expression, ctx, expectedReturnType.type),
-      isAsync: b.isAsynchronous,
-    );
-    stInfo = StatementInfo(-1, willAlwaysReturn: true);
-    ctx.endAllocScope(popValues: false);
-  } else {
-    throw CompileError('Unsupported function body type: ${b.runtimeType}');
-  }
-
-  ctx.temporaryTypes[ctx.library]?.clear();
-
-  if (!(stInfo.willAlwaysReturn || stInfo.willAlwaysThrow)) {
     if (b.isAsynchronous) {
-      asyncComplete(ctx, -1);
-      return;
+      setupAsyncFunction(ctx);
     }
-  }
 
-  ctx.endAllocScope();
+    final expectedReturnType = AlwaysReturnType.fromAnnotation(
+      ctx,
+      ctx.library,
+      d.returnType,
+      CoreTypes.dynamic.ref(ctx),
+    );
+    StatementInfo stInfo;
+    if (b is BlockFunctionBody) {
+      stInfo = compileBlock(
+        b.block,
+        expectedReturnType,
+        ctx,
+        name: '${d.name.lexeme}()',
+      );
+    } else if (b is ExpressionFunctionBody) {
+      ctx.beginAllocScope();
+      stInfo = doReturn(
+        ctx,
+        expectedReturnType,
+        compileExpression(b.expression, ctx, expectedReturnType.type),
+        isAsync: b.isAsynchronous,
+      );
+      stInfo = StatementInfo(-1, willAlwaysReturn: true);
+      ctx.endAllocScope(popValues: false);
+    } else {
+      throw CompileError('Unsupported function body type: ${b.runtimeType}');
+    }
 
-  if (!(stInfo.willAlwaysReturn || stInfo.willAlwaysThrow)) {
-    ctx.pushOp(Return.make(-1), Return.LEN);
+    if (!(stInfo.willAlwaysReturn || stInfo.willAlwaysThrow)) {
+      if (b.isAsynchronous) {
+        asyncComplete(ctx, -1);
+        return;
+      }
+    }
+
+    ctx.endAllocScope();
+
+    if (!(stInfo.willAlwaysReturn || stInfo.willAlwaysThrow)) {
+      ctx.pushOp(Return.make(-1), Return.LEN);
+    }
+  } finally {
+    ctx.currentMethodTypeParams = null;
+    TypeRef.unloadTemporaryTypes(ctx, fnTypeParams);
   }
 }

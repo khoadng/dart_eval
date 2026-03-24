@@ -230,6 +230,24 @@ class Evc {
   /// [PushFunctionPtrCopyCapture]
   static const OP_PUSH_FUNCTION_PTR_COPY_CAPTURE = 73;
 
+  /// [IsTypeGeneric]
+  static const OP_IS_TYPE_GENERIC = 74;
+
+  /// [SetInstanceTAV]
+  static const OP_SET_INSTANCE_TAV = 75;
+
+  /// [PushTypeArg]
+  static const OP_PUSH_TYPE_ARG = 76;
+
+  /// [SetMethodTypeArgs]
+  static const OP_SET_METHOD_TYPE_ARGS = 77;
+
+  /// [PushMethodTypeArg]
+  static const OP_PUSH_METHOD_TYPE_ARG = 78;
+
+  /// [IsTypeParam]
+  static const OP_IS_TYPE_PARAM = 79;
+
   static List<int> i16b(int i16) {
     final x = ByteData(2);
     x.setInt16(0, i16);
@@ -347,4 +365,10 @@ final List<OpLoader> ops = [
   (Runtime rt) => SetAdd(rt), // 71
   (Runtime rt) => BoxSet(rt), // 72
   (Runtime rt) => PushFunctionPtrCopyCapture(rt), // 73
+  (Runtime rt) => IsTypeGeneric(rt), // 74
+  (Runtime rt) => SetInstanceTAV(rt), // 75
+  (Runtime rt) => PushTypeArg(rt), // 76
+  (Runtime rt) => SetMethodTypeArgs(rt), // 77
+  (Runtime rt) => PushMethodTypeArg(rt), // 78
+  (Runtime rt) => IsTypeParam(rt), // 79
 ];

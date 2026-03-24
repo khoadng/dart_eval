@@ -439,6 +439,62 @@ void main() {
       }, prints('true\nfalse\ntrue\n'));
     });
 
+    test('Type used as expression value', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'example': {
+          'main.dart': '''
+            void main() {
+              Type t = int;
+              print(t == 1.runtimeType);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:example/main.dart', 'main');
+      }, prints('true\n'));
+    });
+
+    test('Type passed as function argument', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'example': {
+          'main.dart': '''
+            String describeType(Type t) {
+              return t.toString();
+            }
+            void main() {
+              print(describeType(int));
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:example/main.dart', 'main');
+      }, prints(anything));
+    });
+
+    test('User-defined class used as Type value', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'example': {
+          'main.dart': '''
+            class Foo {
+              Foo();
+            }
+            void main() {
+              Type t = Foo;
+              print(t == Foo().runtimeType);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:example/main.dart', 'main');
+      }, prints('true\n'));
+    });
+
     test('Modifying static class field', () {
       final runtime = compiler.compileWriteAndLoad({
         'example': {
@@ -629,6 +685,32 @@ void main() {
       final runtime = Runtime.ofProgram(program);
       final result = runtime.executeLib('package:example/main.dart', 'main');
       expect(result, 42);
+    });
+
+    test('Polymorphic call through abstract type', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'example': {
+          'main.dart': '''
+            abstract class Shape {
+              int area();
+            }
+            class Square extends Shape {
+              final int side;
+              Square(this.side);
+              @override
+              int area() => side * side;
+            }
+            void main() {
+              Shape s = Square(10);
+              print(s.area());
+            }
+          ''',
+        },
+      });
+      expect(
+        () => runtime.executeLib('package:example/main.dart', 'main'),
+        prints('100\n'),
+      );
     });
   });
 }

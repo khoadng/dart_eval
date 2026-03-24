@@ -4,6 +4,7 @@ import 'package:dart_eval/src/eval/compiler/builtins.dart';
 import 'package:dart_eval/src/eval/compiler/collection/list.dart';
 import 'package:dart_eval/src/eval/compiler/context.dart';
 import 'package:dart_eval/src/eval/compiler/expression/function.dart';
+import 'package:dart_eval/src/eval/compiler/helpers/type_args.dart';
 import 'package:dart_eval/src/eval/compiler/reference.dart';
 import 'package:dart_eval/src/eval/compiler/type.dart';
 
@@ -105,10 +106,13 @@ class Variable {
         v2 = boxListContents(ctx, this);
       }
       ctx.pushOp(BoxList.make(v2.scopeFrameOffset), BoxList.LEN);
+      emitSetInstanceTAV(ctx, v2, type);
     } else if (type == CoreTypes.map.ref(ctx)) {
       ctx.pushOp(BoxMap.make(scopeFrameOffset), BoxMap.LEN);
+      emitSetInstanceTAV(ctx, this, type);
     } else if (type == CoreTypes.set.ref(ctx)) {
       ctx.pushOp(BoxSet.make(scopeFrameOffset), BoxSet.LEN);
+      emitSetInstanceTAV(ctx, this, type);
     } else if (type == CoreTypes.string.ref(ctx)) {
       ctx.pushOp(BoxString.make(scopeFrameOffset), BoxString.LEN);
     } else if (type == CoreTypes.nullType.ref(ctx)) {

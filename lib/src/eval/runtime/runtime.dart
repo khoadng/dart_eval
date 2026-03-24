@@ -734,6 +734,37 @@ class Runtime {
           ...Evc.i32b(op._const),
           ...Evc.i32b(op._type),
         ];
+      case IsTypeGeneric op:
+        return [
+          Evc.OP_IS_TYPE_GENERIC,
+          ...Evc.i16b(op._objectOffset),
+          ...Evc.i32b(op._runtimeTypeSetIndex),
+          op._not ? 1 : 0,
+        ];
+      case SetInstanceTAV op:
+        return [
+          Evc.OP_SET_INSTANCE_TAV,
+          ...Evc.i16b(op._instanceOffset),
+          ...Evc.i32b(op._runtimeTypeSetIndex),
+        ];
+      case PushTypeArg op:
+        return [Evc.OP_PUSH_TYPE_ARG, ...Evc.i16b(op._typeArgIndex)];
+      case SetMethodTypeArgs op:
+        return [
+          Evc.OP_SET_METHOD_TYPE_ARGS,
+          ...Evc.i16b(op._entries.length),
+          for (final e in op._entries) ...[e.source, ...Evc.i32b(e.value)],
+        ];
+      case PushMethodTypeArg op:
+        return [Evc.OP_PUSH_METHOD_TYPE_ARG, ...Evc.i16b(op._index)];
+      case IsTypeParam op:
+        return [
+          Evc.OP_IS_TYPE_PARAM,
+          ...Evc.i16b(op._objectOffset),
+          op._source,
+          ...Evc.i16b(op._index),
+          op._not ? 1 : 0,
+        ];
       default:
         throw ArgumentError('Not a valid op $op');
     }
@@ -763,6 +794,14 @@ class Runtime {
 
   /// Arguments to the current function.
   var args = <Object?>[];
+
+  /// Method-level type argument IDs pending for the next [PushScope].
+  /// Set by [SetMethodTypeArgs] at the call site, consumed by [PushScope].
+  var pendingMethodTypeArgs = <int>[];
+
+  /// Stack of method-level type argument ID lists, one per call frame.
+  /// Pushed by [PushScope], popped by [Return] / [PopScope].
+  final methodTypeArgStack = <List<int>>[[]];
 
   /// The decoded program bytecode
   final pr = <EvcOp>[];
@@ -904,6 +943,7 @@ class Runtime {
         break;
       }
       stack.removeLast();
+      methodTypeArgStack.removeLast();
       if (stack.isNotEmpty) {
         frame = stack.last;
         frameOffset = frameOffsetStack.removeLast();

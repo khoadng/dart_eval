@@ -595,6 +595,8 @@ TypeRef _resolveFieldFormalType(
     throw CompileError('Field formals can only occur in constructors');
   }
   final $class = parameterHost.parent as NamedCompilationUnitMember;
+
+  // Class type params are already on the scope stack
   return TypeRef.lookupFieldType(
         ctx,
         TypeRef.lookupDeclaration(ctx, decLibrary, $class),

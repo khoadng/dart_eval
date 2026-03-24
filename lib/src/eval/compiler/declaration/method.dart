@@ -27,6 +27,18 @@ int compileMethodDeclaration(
   ctx.beginAllocScope(existingAllocLen: (d.parameters?.parameters.length ?? 0));
   ctx.scopeFrameOffset += d.parameters?.parameters.length ?? 0;
   ctx.setLocal('#this', Variable(0, TypeRef.$this(ctx)!));
+
+  // Push method-level type params so they're visible
+  // when resolving parameter and return type annotations.
+  final methodTypeParams = d.typeParameters?.typeParameters;
+  TypeRef.loadTemporaryTypes(ctx, methodTypeParams);
+
+  if (methodTypeParams != null && methodTypeParams.isNotEmpty) {
+    ctx.currentMethodTypeParams = [
+      for (final p in methodTypeParams) p.name.lexeme,
+    ];
+  }
+
   final resolvedParams = d.parameters == null
       ? <PossiblyValuedParameter>[]
       : resolveFPLDefaults(ctx, d.parameters, true, allowUnboxed: false);
@@ -90,6 +102,8 @@ int compileMethodDeclaration(
     ctx.endAllocScope();
   } else if (b is EmptyFunctionBody) {
     ctx.endAllocScope();
+    ctx.currentMethodTypeParams = null;
+    TypeRef.unloadTemporaryTypes(ctx, methodTypeParams);
     return -1;
   } else {
     throw CompileError('Unknown function body type ${b.runtimeType}');
@@ -104,6 +118,8 @@ int compileMethodDeclaration(
   }
 
   ctx.endAllocScope();
+  ctx.currentMethodTypeParams = null;
+  TypeRef.unloadTemporaryTypes(ctx, methodTypeParams);
 
   if (d.isStatic) {
     ctx.topLevelDeclarationPositions[ctx.library]!['$parentName.$methodName'] =

@@ -6,11 +6,53 @@ import 'package:dart_eval/src/eval/compiler/errors.dart';
 import 'package:dart_eval/src/eval/compiler/reference.dart';
 import 'package:dart_eval/src/eval/compiler/type.dart';
 import 'package:dart_eval/src/eval/compiler/variable.dart';
+import 'package:dart_eval/src/eval/runtime/runtime.dart';
 
 import '../util.dart';
 
 Variable compileIdentifier(Identifier id, CompilerContext ctx) {
+  if (id is SimpleIdentifier) {
+    // Method-level type params shadow class-level type params.
+    final methodIdx = _methodTypeParamIndex(ctx, id.name);
+    if (methodIdx != null) {
+      ctx.pushOp(
+        PushMethodTypeArg.make(methodIdx),
+        PushMethodTypeArg.length,
+      );
+      return Variable.alloc(ctx, CoreTypes.type.ref(ctx));
+    }
+
+    // Class-level reified type parameter: T used as value in generic class body
+    if (ctx.currentClass != null) {
+      final idx = _classTypeParamIndex(ctx, id.name);
+      if (idx != null) {
+        ctx.pushOp(PushTypeArg.make(idx), PushTypeArg.length);
+        return Variable.alloc(ctx, CoreTypes.type.ref(ctx));
+      }
+    }
+  }
   return compileIdentifierAsReference(id, ctx).getValue(ctx, id);
+}
+
+int? _methodTypeParamIndex(CompilerContext ctx, String name) {
+  final params = ctx.currentMethodTypeParams;
+  if (params == null) return null;
+  final idx = params.indexOf(name);
+  return idx >= 0 ? idx : null;
+}
+
+int? _classTypeParamIndex(CompilerContext ctx, String name) {
+  final cls = ctx.currentClass;
+  final typeParams = cls is ClassDeclaration
+      ? cls.typeParameters?.typeParameters
+      : cls is EnumDeclaration
+          ? cls.typeParameters?.typeParameters
+          : null;
+  if (typeParams == null) return null;
+  for (var i = 0; i < typeParams.length; i++) {
+    if (typeParams[i].name.lexeme == name) return i;
+  }
+  return null;
 }
 
 Reference compileIdentifierAsReference(Identifier id, CompilerContext ctx) {

@@ -3,6 +3,7 @@ import 'package:dart_eval/dart_eval_bridge.dart';
 import 'package:dart_eval/src/eval/compiler/builtins.dart';
 import 'package:dart_eval/src/eval/compiler/context.dart';
 import 'package:dart_eval/src/eval/compiler/expression/expression.dart';
+import 'package:dart_eval/src/eval/compiler/helpers/type_args.dart';
 import 'package:dart_eval/src/eval/compiler/type.dart';
 import 'package:dart_eval/src/eval/compiler/variable.dart';
 import 'package:dart_eval/src/eval/runtime/runtime.dart';
@@ -10,6 +11,34 @@ import 'package:dart_eval/src/eval/shared/types.dart';
 
 Variable compileAsExpression(AsExpression e, CompilerContext ctx) {
   var V = compileExpression(e.expression, ctx);
+
+  // as T where T is a type parameter — runtime check via IsTypeParam
+  final typeParamSource = resolveTypeParamSource(e.type, ctx);
+  if (typeParamSource != null) {
+    V = V.boxIfNeeded(ctx);
+    ctx.pushOp(
+      IsTypeParam.make(
+        V.scopeFrameOffset,
+        typeParamSource.$1,
+        typeParamSource.$2,
+        false,
+      ),
+      IsTypeParam.length,
+    );
+    final vIs = Variable.alloc(
+      ctx,
+      CoreTypes.bool.ref(ctx).copyWith(boxed: false),
+    );
+    final errMsg = BuiltinValue(
+      stringval: "TypeError: type param cast failed",
+    ).push(ctx);
+    ctx.pushOp(
+      Assert.make(vIs.scopeFrameOffset, errMsg.scopeFrameOffset),
+      Assert.LEN,
+    );
+    return V;
+  }
+
   final slot = TypeRef.fromAnnotation(ctx, ctx.library, e.type);
 
   /// If the type is the slot, we can just return

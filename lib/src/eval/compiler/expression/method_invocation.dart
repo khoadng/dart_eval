@@ -20,6 +20,7 @@ import 'package:dart_eval/src/eval/runtime/runtime.dart';
 import '../util.dart';
 import 'expression.dart';
 import 'identifier.dart';
+import '../helpers/type_args.dart';
 
 Variable compileMethodInvocation(
   CompilerContext ctx,
@@ -120,17 +121,23 @@ Variable compileMethodInvocation(
             L != null ||
             !(mReturnType.type?.isUnboxedAcrossFunctionBoundaries ?? false),
       );
+      var vType =
+          mReturnType.type?.copyWith(
+            boxed:
+                L != null ||
+                !(mReturnType.type?.isUnboxedAcrossFunctionBoundaries ?? false),
+          ) ??
+          CoreTypes.dynamic.ref(ctx);
+
+      vType = applyAstTypeArgs(ctx, vType, e.typeArguments);
+
       final v = Variable.alloc(
         ctx,
-        mReturnType.type?.copyWith(
-              boxed:
-                  L != null ||
-                  !(mReturnType.type?.isUnboxedAcrossFunctionBoundaries ??
-                      false),
-            ) ??
-            CoreTypes.dynamic.ref(ctx),
+        vType,
         concreteTypes: returnType == null ? [] : [returnType],
       );
+
+      emitSetInstanceTAV(ctx, v, vType);
 
       return v;
     }
@@ -141,6 +148,7 @@ Variable compileMethodInvocation(
 
   final resolveGenerics = <String, TypeRef>{};
   var isConstructor = false;
+  List<TypeParameter>? methodTypeParams;
 
   if (dec0.isBridge) {
     final bridge = dec0.bridge;
@@ -183,11 +191,32 @@ Variable compileMethodInvocation(
     } else if (dec is ConstructorDeclaration) {
       fpl = dec.parameters.parameters;
       isConstructor = true;
+      // For constructors, use the class's type params for generic inference
+      final parent = dec.parent;
+      if (parent is ClassDeclaration) {
+        typeParams = parent.typeParameters?.typeParameters;
+      }
     } else {
       throw CompileError('Invalid declaration type ${dec.runtimeType}');
     }
 
+    if (!isConstructor) methodTypeParams = typeParams;
+
+    // Validate type arg count if explicit type args are provided
+    final astTypeArgs = e.typeArguments;
+    if (astTypeArgs != null && astTypeArgs.arguments.isNotEmpty) {
+      final expected = typeParams?.length ?? 0;
+      final actual = astTypeArgs.arguments.length;
+      if (actual != expected) {
+        throw CompileError(
+          'Expected $expected type argument(s), got $actual',
+          astTypeArgs,
+        );
+      }
+    }
+
     if (typeParams != null) {
+      ctx.pushGenericScope(resolveGenerics, offset.file);
       for (final param in typeParams) {
         final bound = param.bound;
         final name = param.name.lexeme;
@@ -203,25 +232,61 @@ Variable compileMethodInvocation(
       }
     }
 
-    final argsPair = compileArgumentList(
-      ctx,
-      e.argumentList,
-      offset.file!,
-      fpl,
-      dec,
-      before: L != null ? [L] : [],
-      source: e,
-      resolveGenerics: resolveGenerics,
-    );
+    if (astTypeArgs != null && typeParams != null) {
+      final argTypes = [
+        for (final arg in astTypeArgs.arguments)
+          TypeRef.fromAnnotation(ctx, ctx.library, arg),
+      ];
+      validateTypeArgBounds(
+        ctx,
+        offset.file!,
+        typeParams,
+        argTypes,
+        astTypeArgs.arguments.toList(),
+      );
+    }
 
-    if (returnAnnotation != null && returnAnnotation is NamedType) {
-      final g = resolveGenerics[returnAnnotation.name.value()];
-      if (g != null) {
-        mReturnType = AlwaysReturnType(g, returnAnnotation.question != null);
+    try {
+      final argsPair = compileArgumentList(
+        ctx,
+        e.argumentList,
+        offset.file!,
+        fpl,
+        dec,
+        before: L != null ? [L] : [],
+        source: e,
+        resolveGenerics: resolveGenerics,
+      );
+
+      // Override resolveGenerics with explicit type args
+      if (astTypeArgs != null && typeParams != null) {
+        for (
+          var i = 0;
+          i < typeParams.length && i < astTypeArgs.arguments.length;
+          i++
+        ) {
+          resolveGenerics[typeParams[i].name.lexeme] = TypeRef.fromAnnotation(
+            ctx,
+            offset.file!,
+            astTypeArgs.arguments[i],
+          );
+        }
+      }
+
+      if (returnAnnotation != null && returnAnnotation is NamedType) {
+        final g = resolveGenerics[returnAnnotation.name.value()];
+        if (g != null) {
+          mReturnType = AlwaysReturnType(g, returnAnnotation.question != null);
+        }
+      }
+
+      args = argsPair.first;
+      namedArgs = argsPair.second;
+    } finally {
+      if (typeParams != null) {
+        ctx.popGenericScope();
       }
     }
-    args = argsPair.first;
-    namedArgs = argsPair.second;
   }
 
   final argTypes = args.map((e) => e.type).toList();
@@ -248,6 +313,12 @@ Variable compileMethodInvocation(
       ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);
     }
   } else {
+    emitSetMethodTypeArgs(
+      ctx,
+      methodTypeParams,
+      e.typeArguments,
+      resolveGenerics,
+    );
     final loc = ctx.pushOp(Call.make(offset.offset ?? -1), Call.length);
     if (offset.offset == null) {
       ctx.offsetTracker.setOffset(loc, offset);
@@ -268,17 +339,37 @@ Variable compileMethodInvocation(
         namedArgTypes,
       ) ??
       AlwaysReturnType(CoreTypes.dynamic.ref(ctx), true);
-  final returnType = mReturnType.type?.copyWith(
+  var returnType = mReturnType.type?.copyWith(
     boxed:
         dec0.isBridge ||
         !(mReturnType.type?.isUnboxedAcrossFunctionBoundaries ?? false),
   );
+
+  // For constructor calls, apply type arguments to the return type.
+  if (isConstructor && returnType != null) {
+    returnType = applyAstTypeArgs(ctx, returnType, e.typeArguments);
+    if (returnType.specifiedTypeArgs.isEmpty) {
+      // Infer type args from argument types for generic constructors.
+      // Match each constructor param's field type annotation against the
+      // class's type params, and use the actual argument type as the binding.
+      returnType = inferConstructorTypeArgs(
+        ctx,
+        dec0.declaration,
+        returnType,
+        argTypes,
+      );
+    }
+  }
 
   final v = Variable.alloc(
     ctx,
     returnType ?? CoreTypes.dynamic.ref(ctx),
     concreteTypes: [if (isConstructor && returnType != null) returnType],
   );
+
+  if (isConstructor && returnType != null) {
+    emitSetInstanceTAV(ctx, v, returnType);
+  }
 
   return v;
 }
@@ -295,6 +386,9 @@ Variable _invokeWithTarget(
   TypeRef? staticType;
 
   Pair<List<Variable>, Map<String, Variable>> argsPair;
+  List<TypeParameter>? targetMethodTypeParams;
+  final resolveGenerics = <String, TypeRef>{};
+  TypeAnnotation? returnAnnotation;
 
   final knownMethod = getKnownMethods(ctx)[L.type]?[e.methodName.name];
 
@@ -343,15 +437,45 @@ Variable _invokeWithTarget(
             : (dec as ConstructorDeclaration).parameters.parameters) ??
         <FormalParameter>[];
 
-    argsPair = compileArgumentList(
-      ctx,
-      e.argumentList,
-      (isStatic ? staticType! : L.type).file,
-      fpl,
-      dec,
-      before: [if (!isStatic) L],
-      source: e,
-    );
+    final receiverType = isStatic ? staticType! : L.type;
+    final methodTypeParams = dec is MethodDeclaration
+        ? dec.typeParameters?.typeParameters
+        : null;
+    targetMethodTypeParams = methodTypeParams;
+    returnAnnotation = dec is MethodDeclaration ? dec.returnType : null;
+
+    argsPair = ctx.withTypeParamScope(methodTypeParams, () {
+      return ctx.withClassTypeScope(receiverType, () {
+        return compileArgumentList(
+          ctx,
+          e.argumentList,
+          receiverType.file,
+          fpl,
+          dec,
+          before: [if (!isStatic) L],
+          source: e,
+        );
+      });
+    });
+
+    // Build resolveGenerics from explicit type args for return type resolution
+    if (methodTypeParams != null) {
+      final astTypeArgs = e.typeArguments;
+      if (astTypeArgs != null) {
+        for (
+          var i = 0;
+          i < methodTypeParams.length && i < astTypeArgs.arguments.length;
+          i++
+        ) {
+          resolveGenerics[methodTypeParams[i].name.lexeme] =
+              TypeRef.fromAnnotation(
+                ctx,
+                receiverType.file,
+                astTypeArgs.arguments[i],
+              );
+        }
+      }
+    }
   }
 
   final args = argsPair.first;
@@ -370,6 +494,12 @@ Variable _invokeWithTarget(
       );
       ctx.pushOp(ix, InvokeExternal.LEN);
     } else {
+      emitSetMethodTypeArgs(
+        ctx,
+        targetMethodTypeParams,
+        e.typeArguments,
+        const {},
+      );
       final offset = DeferredOrOffset.lookupStatic(
         ctx,
         staticType!.file,
@@ -382,7 +512,12 @@ Variable _invokeWithTarget(
       }
     }
   } else if (L.concreteTypes.length == 1 && !dec0!.isBridge) {
-    // If the concrete type is known we can use a static call
+    emitSetMethodTypeArgs(
+      ctx,
+      targetMethodTypeParams,
+      e.typeArguments,
+      const {},
+    );
     final actualType = L.concreteTypes[0];
     final offset = DeferredOrOffset(
       file: actualType.file,
@@ -393,6 +528,12 @@ Variable _invokeWithTarget(
     final loc = ctx.pushOp(Call.make(-1), Call.length);
     ctx.offsetTracker.setOffset(loc, offset);
   } else {
+    emitSetMethodTypeArgs(
+      ctx,
+      targetMethodTypeParams,
+      e.typeArguments,
+      const {},
+    );
     final op = InvokeDynamic.make(
       L.boxIfNeeded(ctx).scopeFrameOffset,
       ctx.constantPool.addOrGet(e.methodName.name),
@@ -409,12 +550,23 @@ Variable _invokeWithTarget(
     $static: isStatic,
   );
 
+  if (returnAnnotation case NamedType(:final name, :final question)) {
+    final g = resolveGenerics[name.value()];
+    if (g != null) {
+      mReturnType = AlwaysReturnType(g, question != null);
+    }
+  }
+
   ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);
 
-  final v = Variable.alloc(
-    ctx,
-    mReturnType?.type?.copyWith(boxed: true) ?? CoreTypes.dynamic.ref(ctx),
-  );
+  var resultType =
+      mReturnType?.type?.copyWith(boxed: true) ?? CoreTypes.dynamic.ref(ctx);
+
+  resultType = applyAstTypeArgs(ctx, resultType, e.typeArguments);
+
+  final v = Variable.alloc(ctx, resultType);
+
+  emitSetInstanceTAV(ctx, v, resultType);
 
   return v;
 }

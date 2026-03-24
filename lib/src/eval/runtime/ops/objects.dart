@@ -414,6 +414,107 @@ class IsType implements EvcOp {
   String toString() => 'IsType (L$_objectOffset is${_not ? '!' : ''} $_type)';
 }
 
+class IsTypeGeneric implements EvcOp {
+  IsTypeGeneric(Runtime runtime)
+    : _objectOffset = runtime._readInt16(),
+      _runtimeTypeSetIndex = runtime._readInt32(),
+      _not = runtime._readUint8() > 0;
+
+  final int _objectOffset;
+  final int _runtimeTypeSetIndex;
+  final bool _not;
+
+  IsTypeGeneric.make(this._objectOffset, this._runtimeTypeSetIndex, this._not);
+
+  static int length = Evc.BASE_OPLEN + Evc.I16_LEN + Evc.I32_LEN + Evc.I8_LEN;
+
+  @override
+  void run(Runtime runtime) {
+    final value = runtime.frame[_objectOffset] as $Value;
+    final targetRts = runtime.runtimeTypes[_runtimeTypeSetIndex];
+    final targetType = _rtsToRuntimeType(targetRts);
+
+    final objectType = _getFullRuntimeType(value, runtime);
+    final result = RuntimeType.isSubtypeOf(
+      objectType,
+      targetType,
+      runtime.typeTypes,
+    );
+    runtime.frame[runtime.frameOffset++] = _not ? !result : result;
+  }
+
+  static RuntimeType _getFullRuntimeType($Value value, Runtime runtime) {
+    if (value is $TypeArgHolder) {
+      return (value as $TypeArgHolder).fullRuntimeType(runtime);
+    }
+    return RuntimeType(value.$getRuntimeType(runtime), const []);
+  }
+
+  static RuntimeType _rtsToRuntimeType(RuntimeTypeSet rts) {
+    return RuntimeType(rts.rt, [
+      for (final ta in rts.typeArgs) _rtsToRuntimeType(ta),
+    ]);
+  }
+
+  @override
+  String toString() =>
+      'IsTypeGeneric (L$_objectOffset is${_not ? '!' : ''} rts#$_runtimeTypeSetIndex)';
+}
+
+class SetInstanceTAV implements EvcOp {
+  SetInstanceTAV(Runtime runtime)
+    : _instanceOffset = runtime._readInt16(),
+      _runtimeTypeSetIndex = runtime._readInt32();
+
+  final int _instanceOffset;
+  final int _runtimeTypeSetIndex;
+
+  SetInstanceTAV.make(this._instanceOffset, this._runtimeTypeSetIndex);
+
+  static const int length = Evc.BASE_OPLEN + Evc.I16_LEN + Evc.I32_LEN;
+
+  @override
+  void run(Runtime runtime) {
+    final instance = runtime.frame[_instanceOffset];
+    final holder = instance is $TypeArgHolder ? instance : null;
+    if (holder == null) return;
+    final rts = runtime.runtimeTypes[_runtimeTypeSetIndex];
+    holder.typeArgVector = IsTypeGeneric._rtsToRuntimeType(rts);
+  }
+
+  @override
+  String toString() =>
+      'SetInstanceTAV (L$_instanceOffset, rts#$_runtimeTypeSetIndex)';
+}
+
+class PushTypeArg implements EvcOp {
+  PushTypeArg(Runtime runtime) : _typeArgIndex = runtime._readInt16();
+
+  final int _typeArgIndex;
+
+  PushTypeArg.make(this._typeArgIndex);
+
+  static const int length = Evc.BASE_OPLEN + Evc.I16_LEN;
+
+  @override
+  void run(Runtime runtime) {
+    final instance = runtime.frame[0]; // #this
+    if (instance is $TypeArgHolder) {
+      final rt = instance.fullRuntimeType(runtime);
+      if (_typeArgIndex < rt.typeArgs.length) {
+        runtime.frame[runtime.frameOffset++] = $TypeImpl(
+          rt.typeArgs[_typeArgIndex].type,
+        );
+        return;
+      }
+    }
+    runtime.frame[runtime.frameOffset++] = $TypeImpl(-1);
+  }
+
+  @override
+  String toString() => 'PushTypeArg (#this.TAV[$_typeArgIndex])';
+}
+
 class PushRuntimeType implements EvcOp {
   PushRuntimeType(Runtime runtime) : _value = runtime._readInt16();
 
@@ -451,4 +552,142 @@ class PushConstantType implements EvcOp {
 
   @override
   String toString() => 'PushConstantType (ID $_typeId)';
+}
+
+class MethodTypeArgEntry {
+  final int source; // 0=constant, 1=method, 2=class
+  final int value; // type ID (source=0), or index into MTAV/TAV (source=1,2)
+
+  const MethodTypeArgEntry(this.source, this.value);
+  const MethodTypeArgEntry.constant(int typeId) : source = 0, value = typeId;
+  const MethodTypeArgEntry.fromMethod(int index) : source = 1, value = index;
+  const MethodTypeArgEntry.fromClass(int index) : source = 2, value = index;
+
+  /// Bytecode: 1 byte source + 4 bytes value.
+  static const int byteLen = 1 + Evc.I32_LEN;
+}
+
+class SetMethodTypeArgs implements EvcOp {
+  factory SetMethodTypeArgs(Runtime runtime) {
+    final count = runtime._readInt16();
+    final entries = List.generate(count, (_) {
+      final source = runtime._readUint8();
+      final value = runtime._readInt32();
+      return MethodTypeArgEntry(source, value);
+    });
+    return SetMethodTypeArgs._(entries);
+  }
+
+  SetMethodTypeArgs._(this._entries);
+
+  SetMethodTypeArgs.make(this._entries);
+
+  final List<MethodTypeArgEntry> _entries;
+
+  static int len(int count) =>
+      Evc.BASE_OPLEN + Evc.I16_LEN + MethodTypeArgEntry.byteLen * count;
+
+  @override
+  void run(Runtime runtime) {
+    final resolved = <int>[];
+    for (final entry in _entries) {
+      switch (entry.source) {
+        case 0: // constant
+          resolved.add(entry.value);
+        case 1: // forward from current MTAV
+          final mta = runtime.methodTypeArgStack.last;
+          resolved.add(entry.value < mta.length ? mta[entry.value] : -1);
+        case 2: // read from #this's TAV
+          final instance = runtime.frame[0];
+          if (instance is $TypeArgHolder) {
+            final rt = instance.fullRuntimeType(runtime);
+            resolved.add(
+              entry.value < rt.typeArgs.length
+                  ? rt.typeArgs[entry.value].type
+                  : -1,
+            );
+          } else {
+            resolved.add(-1);
+          }
+      }
+    }
+    runtime.pendingMethodTypeArgs = resolved;
+  }
+
+  @override
+  String toString() =>
+      'SetMethodTypeArgs (${_entries.map((e) => '${e.source}:${e.value}')})';
+}
+
+class PushMethodTypeArg implements EvcOp {
+  PushMethodTypeArg(Runtime runtime) : _index = runtime._readInt16();
+
+  final int _index;
+
+  PushMethodTypeArg.make(this._index);
+
+  static const int length = Evc.BASE_OPLEN + Evc.I16_LEN;
+
+  @override
+  void run(Runtime runtime) {
+    final mta = runtime.methodTypeArgStack.last;
+    if (_index < mta.length) {
+      runtime.frame[runtime.frameOffset++] = $TypeImpl(mta[_index]);
+      return;
+    }
+    runtime.frame[runtime.frameOffset++] = $TypeImpl(-1);
+  }
+
+  @override
+  String toString() => 'PushMethodTypeArg (MTAV[$_index])';
+}
+
+class IsTypeParam implements EvcOp {
+  IsTypeParam(Runtime runtime)
+    : _objectOffset = runtime._readInt16(),
+      _source = runtime._readUint8(),
+      _index = runtime._readInt16(),
+      _not = runtime._readUint8() == 1;
+
+  final int _objectOffset;
+  final int _source; // 1=MTAV, 2=TAV
+  final int _index;
+  final bool _not;
+
+  IsTypeParam.make(this._objectOffset, this._source, this._index, this._not);
+
+  static const int length = Evc.BASE_OPLEN + Evc.I16_LEN + 1 + Evc.I16_LEN + 1;
+
+  @override
+  void run(Runtime runtime) {
+    int targetTypeId = -1;
+    if (_source == 1) {
+      final mta = runtime.methodTypeArgStack.last;
+      if (_index < mta.length) targetTypeId = mta[_index];
+    } else if (_source == 2) {
+      final instance = runtime.frame[0];
+      if (instance is $TypeArgHolder) {
+        final rt = instance.fullRuntimeType(runtime);
+        if (_index < rt.typeArgs.length) {
+          targetTypeId = rt.typeArgs[_index].type;
+        }
+      }
+    }
+
+    // dynamic (-1) matches everything
+    if (targetTypeId < 0) {
+      runtime.frame[runtime.frameOffset++] = !_not;
+      return;
+    }
+
+    final object = runtime.frame[_objectOffset] as $Value;
+    final objectTypeId = object.$getRuntimeType(runtime);
+    final typeSet = runtime.typeTypes[objectTypeId];
+    final result = typeSet.contains(targetTypeId);
+    runtime.frame[runtime.frameOffset++] = _not ? !result : result;
+  }
+
+  @override
+  String toString() =>
+      'IsTypeParam (L$_objectOffset is${_not ? '!' : ''} src=$_source[$_index])';
 }

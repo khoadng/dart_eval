@@ -78,6 +78,8 @@ Variable compileExpression(
     return compileRethrowExpression(ctx, e);
   } else if (e is PatternAssignment) {
     return compilePatternAssignment(ctx, e);
+  } else if (e is FunctionReference) {
+    return compileExpression(e.function, ctx, bound);
   }
 
   throw CompileError('Unknown expression type ${e.runtimeType}');

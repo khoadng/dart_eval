@@ -1,7 +1,7 @@
 part of 'collection.dart';
 
 /// dart_eval bimodal wrapper for [List]
-class $List<E> implements List<E>, $Instance {
+class $List<E> with $TypeArgHolder implements List<E>, $Instance {
   /// Configure the [$List] wrapper for use in a [Runtime]
   static void configureForCompile(BridgeDeclarationRegistry registry) {
     registry.defineBridgeClass($declaration);

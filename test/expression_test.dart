@@ -417,5 +417,257 @@ void main() {
         runtime.executeLib('package:example/main.dart', 'main');
       }, prints('True executed\ntrue\nFalse executed\nfalse\n'));
     });
+    test('Generic "is" expression with user-defined class', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'eval_test': {
+          'main.dart': '''
+            class Box<T> {
+              T value;
+              Box(this.value);
+            }
+
+            void main() {
+              final b = Box<int>(42);
+              print(b is Box<int>);
+              print(b is Box<String>);
+              print(b is Box);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:eval_test/main.dart', 'main');
+      }, prints('true\nfalse\ntrue\n'));
+    });
+
+    test('Generic "is" with deep inferred type args (List<T> field)', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'eval_test': {
+          'main.dart': '''
+            class Wrapper<T> {
+              List<T> items;
+              Wrapper(this.items);
+            }
+
+            void main() {
+              final w = Wrapper(<int>[1, 2, 3]);
+              print(w is Wrapper<int>);
+              print(w is Wrapper<String>);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:eval_test/main.dart', 'main');
+      }, prints('true\nfalse\n'));
+    });
+
+    test('Generic "is" with inferred type args (no explicit <int>)', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'eval_test': {
+          'main.dart': '''
+            class Box<T> {
+              T value;
+              Box(this.value);
+            }
+
+            void main() {
+              final b = Box(42);
+              print(b is Box<int>);
+              print(b is Box<String>);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:eval_test/main.dart', 'main');
+      }, prints('true\nfalse\n'));
+    });
+
+    test('Generic "is" with inferred type args (new keyword)', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'eval_test': {
+          'main.dart': '''
+            class Box<T> {
+              T value;
+              Box(this.value);
+            }
+
+            void main() {
+              final b = new Box(42);
+              print(b is Box<int>);
+              print(b is Box<String>);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:eval_test/main.dart', 'main');
+      }, prints('true\nfalse\n'));
+    });
+
+    test('Generic "is" with inferred list type args', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'eval_test': {
+          'main.dart': '''
+            void main() {
+              final list = [1, 2, 3];
+              print(list is List<int>);
+              print(list is List<String>);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:eval_test/main.dart', 'main');
+      }, prints('true\nfalse\n'));
+    });
+
+    test('Generic "is!" expression with user-defined class', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'eval_test': {
+          'main.dart': '''
+            class Box<T> {
+              T value;
+              Box(this.value);
+            }
+
+            void main() {
+              final b = Box<int>(42);
+              print(b is! Box<int>);
+              print(b is! Box<String>);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:eval_test/main.dart', 'main');
+      }, prints('false\ntrue\n'));
+    });
+
+    test('Generic "is" with covariance (Box<int> is Box<num>)', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'eval_test': {
+          'main.dart': '''
+            class Box<T> {
+              T value;
+              Box(this.value);
+            }
+
+            void main() {
+              final b = Box<int>(42);
+              print(b is Box<num>);
+              print(b is Box<Object>);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:eval_test/main.dart', 'main');
+      }, prints('true\ntrue\n'));
+    });
+
+    test('Generic "is" with List type args', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'eval_test': {
+          'main.dart': '''
+            void main() {
+              final list = <int>[1, 2, 3];
+              print(list is List<int>);
+              print(list is List<String>);
+              print(list is List<num>);
+              print(list is List);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:eval_test/main.dart', 'main');
+      }, prints('true\nfalse\ntrue\ntrue\n'));
+    });
+
+    test('Generic "is" with Map type args', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'eval_test': {
+          'main.dart': '''
+            void main() {
+              final map = <String, int>{'a': 1};
+              print(map is Map<String, int>);
+              print(map is Map<int, int>);
+              print(map is Map);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:eval_test/main.dart', 'main');
+      }, prints('true\nfalse\ntrue\n'));
+    });
+
+    test('Generic "is" with subclass', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'eval_test': {
+          'main.dart': '''
+            class Box<T> {
+              T value;
+              Box(this.value);
+            }
+
+            class SpecialBox<T> extends Box<T> {
+              SpecialBox(T value) : super(value);
+            }
+
+            void main() {
+              final sb = SpecialBox<int>(42);
+              print(sb is Box<int>);
+              print(sb is Box<String>);
+              print(sb is SpecialBox<int>);
+              print(sb is Box);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:eval_test/main.dart', 'main');
+      }, prints('true\nfalse\ntrue\ntrue\n'));
+    });
+
+    test('Generic "is" across libraries', () {
+      final runtime = compiler.compileWriteAndLoad({
+        'lib_a': {
+          'box.dart': '''
+            class Box<T> {
+              T value;
+              Box(this.value);
+            }
+          ''',
+        },
+        'eval_test': {
+          'main.dart': '''
+            import 'package:lib_a/box.dart';
+
+            void main() {
+              final b = Box<int>(42);
+              print(b is Box<int>);
+              print(b is Box<String>);
+            }
+          ''',
+        },
+      });
+
+      expect(() {
+        runtime.executeLib('package:eval_test/main.dart', 'main');
+      }, prints('true\nfalse\n'));
+    });
   });
 }

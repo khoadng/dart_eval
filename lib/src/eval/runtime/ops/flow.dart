@@ -53,6 +53,9 @@ class PushScope implements EvcOp {
       frame[i] = args[i];
     }
     runtime.args = [];
+
+    runtime.methodTypeArgStack.add(runtime.pendingMethodTypeArgs);
+    runtime.pendingMethodTypeArgs = [];
   }
 
   @override
@@ -89,6 +92,7 @@ class PopScope implements EvcOp {
   void run(Runtime runtime) {
     runtime.stack.removeLast();
     runtime.scopeNameStack.removeLast();
+    runtime.methodTypeArgStack.removeLast();
     if (runtime.stack.isNotEmpty) {
       runtime.frame = runtime.stack.last;
       runtime.frameOffset = runtime.frameOffsetStack.removeLast();
@@ -200,6 +204,7 @@ class Return implements EvcOp {
 
     runtime.stack.removeLast();
     runtime.scopeNameStack.removeLast();
+    runtime.methodTypeArgStack.removeLast();
     if (runtime.stack.isNotEmpty) {
       runtime.frame = runtime.stack.last;
       runtime.frameOffset = runtime.frameOffsetStack.removeLast();
@@ -251,6 +256,7 @@ class ReturnAsync implements EvcOp {
 
     runtime.stack.removeLast();
     runtime.scopeNameStack.removeLast();
+    runtime.methodTypeArgStack.removeLast();
     if (runtime.stack.isNotEmpty) {
       runtime.frame = runtime.stack.last;
       runtime.frameOffset = runtime.frameOffsetStack.removeLast();
@@ -471,6 +477,7 @@ class PushFinally implements EvcOp {
     runtime.catchStack.add([]);
     runtime.stack.add(runtime.stack.last);
     runtime.scopeNameStack.add(runtime.scopeNameStack.last);
+    runtime.methodTypeArgStack.add(runtime.methodTypeArgStack.last);
     runtime.frameOffsetStack.add(runtime.frameOffsetStack.last);
     runtime._prOffset = _tryOffset;
   }

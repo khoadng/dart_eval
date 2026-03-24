@@ -177,6 +177,9 @@ class CompilerContext with ScopeContext {
   int position = 0;
   NamedCompilationUnitMember? currentClass;
 
+  /// Method-level type parameter names for the currently compiling method.
+  List<String>? currentMethodTypeParams;
+
   /// A map of library IDs / indexes to a map of String declaration names to
   /// [DeclarationOrBridge]s. See [Compiler._topLevelDeclarationsMap] from which
   /// this is copied.
@@ -185,7 +188,95 @@ class CompilerContext with ScopeContext {
   Map<int, Map<String, Map<String, Declaration>>> instanceDeclarationsMap = {};
   late OffsetTracker offsetTracker = OffsetTracker(this);
   Map<int, Map<String, TypeRef>> visibleTypes = {};
-  Map<int, Map<String, TypeRef>> temporaryTypes = {};
+
+  /// Cache mapping file/library IDs to type names to [TypeRef]s.
+  final typeRefCache = <int, Map<String, TypeRef>>{};
+
+  /// Cache mapping [TypeRef]s to file/library IDs.
+  final typeRefInverseCache = <TypeRef, List<int>>{};
+
+  /// Stack-based generic type parameter scopes. Each entry is a library ID
+  /// and a map of type parameter names to their concrete TypeRef bindings.
+  /// Push on entering a generic class/function scope, pop on exit.
+  final List<(int, Map<String, TypeRef>)> _genericScopes = [];
+
+  /// Push a new generic scope tagged with a library ID.
+  void pushGenericScope(Map<String, TypeRef> bindings, [int? library]) {
+    _genericScopes.add((library ?? this.library, bindings));
+  }
+
+  /// Pop the most recent generic scope.
+  void popGenericScope() {
+    _genericScopes.removeLast();
+  }
+
+  /// Peek at the top of the generic scope stack.
+  (int, Map<String, TypeRef>)? peekGenericScope() {
+    if (_genericScopes.isEmpty) return null;
+    return _genericScopes.last;
+  }
+
+  /// Look up a type parameter name in the generic scope stack.
+  /// Only returns matches from scopes tagged with [library].
+  TypeRef? lookupGeneric(String name, int library) {
+    for (var i = _genericScopes.length - 1; i >= 0; i--) {
+      final (lib, scope) = _genericScopes[i];
+      if (lib != library) continue;
+      final result = scope[name];
+      if (result != null) return result;
+    }
+    return null;
+  }
+
+  /// Runs [body] with the class type params of [classType] pushed onto the
+  /// scope stack.
+  T withClassTypeScope<T>(TypeRef classType, T Function() body) {
+    final classDec = topLevelDeclarationsMap[classType.file]?[classType.name];
+    List<TypeParameter>? typeParams;
+    if (classDec != null && !classDec.isBridge) {
+      final decl = classDec.declaration;
+      if (decl is ClassDeclaration) {
+        typeParams = decl.typeParameters?.typeParameters;
+      }
+    }
+    if (typeParams == null || typeParams.isEmpty) return body();
+
+    if (classType.specifiedTypeArgs.isNotEmpty) {
+      final scope = <String, TypeRef>{};
+      for (
+        var i = 0;
+        i < typeParams.length && i < classType.specifiedTypeArgs.length;
+        i++
+      ) {
+        scope[typeParams[i].name.lexeme] = classType.specifiedTypeArgs[i];
+      }
+      pushGenericScope(scope, classType.file);
+      try {
+        return body();
+      } finally {
+        popGenericScope();
+      }
+    } else {
+      return withTypeParamScope(typeParams, body, classType.file);
+    }
+  }
+
+  /// Runs [body] with [typeParams] pushed onto the scope stack, binding each
+  /// to its bound (or dynamic). No-ops if [typeParams] is null or empty.
+  T withTypeParamScope<T>(
+    List<TypeParameter>? typeParams,
+    T Function() body, [
+    int? library,
+  ]) {
+    if (typeParams == null || typeParams.isEmpty) return body();
+    TypeRef.loadTemporaryTypes(this, typeParams, library);
+    try {
+      return body();
+    } finally {
+      TypeRef.unloadTemporaryTypes(this, typeParams, library);
+    }
+  }
+
   Map<int, Map<String, DeclarationOrPrefix>> visibleDeclarations = {};
   Map<int, Map<String, int>> topLevelDeclarationPositions = {};
   Map<int, Map<String, int>> bridgeStaticFunctionIndices = {};

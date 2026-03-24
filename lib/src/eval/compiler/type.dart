@@ -29,12 +29,6 @@ class TypeRef {
     this.nullable = false,
   });
 
-  /// Cache mapping file/library IDs to type names to [TypeRef]s.
-  static final _cache = <int, Map<String, TypeRef>>{};
-
-  /// Cache mapping [TypeRef]s to file/library IDs.
-  static final _inverseCache = <TypeRef, List<int>>{};
-
   final int file;
   final String name;
   final TypeRef? extendsType;
@@ -57,11 +51,11 @@ class TypeRef {
     int? fileRef,
   }) {
     TypeRef $type;
-    if (!_cache.containsKey(file)) {
-      _cache[file] = {};
+    if (!ctx.typeRefCache.containsKey(file)) {
+      ctx.typeRefCache[file] = {};
     }
 
-    final fileCache = _cache[file]!;
+    final fileCache = ctx.typeRefCache[file]!;
     if (!fileCache.containsKey(name)) {
       $type = (fileCache[name] = TypeRef(file, name));
     } else {
@@ -69,10 +63,10 @@ class TypeRef {
     }
 
     if (fileRef != null) {
-      if (!_inverseCache.containsKey($type)) {
-        _inverseCache[$type] = [];
+      if (!ctx.typeRefInverseCache.containsKey($type)) {
+        ctx.typeRefInverseCache[$type] = [];
       }
-      _inverseCache[$type]!.add(fileRef);
+      ctx.typeRefInverseCache[$type]!.add(fileRef);
     }
 
     ctx.typeRefIndexMap[$type] = ctx.typeNames.length;
@@ -204,9 +198,9 @@ class TypeRef {
       );
     }
     typeAnnotation as NamedType;
-    final n = typeAnnotation.name.stringValue ?? typeAnnotation.name.value();
+    final n = typeAnnotation.name.lexeme;
     final unspecifiedType =
-        ctx.temporaryTypes[library]?[n] ?? ctx.visibleTypes[library]?[n];
+        ctx.lookupGeneric(n, library) ?? ctx.visibleTypes[library]?[n];
     if (unspecifiedType == null) {
       throw CompileError(
         'Unknown type $n',
@@ -216,11 +210,44 @@ class TypeRef {
       );
     }
     final typeArgs = typeAnnotation.typeArguments;
-    if (typeArgs != null) {
+    if (typeArgs != null && typeArgs.arguments.isNotEmpty) {
+      // Type parameters can't be parameterized (e.g. T<int> is invalid)
+      if (ctx.lookupGeneric(n, library) != null) {
+        throw CompileError(
+          "Type parameter '$n' can't have type arguments",
+          typeAnnotation,
+          library,
+          ctx,
+        );
+      }
+
+      final actual = typeArgs.arguments.length;
+      final expected = declaredTypeParamCount(ctx, unspecifiedType);
+      if (expected != null && actual != expected) {
+        throw CompileError(
+          'Expected $expected type argument(s) for $n, got $actual',
+          typeAnnotation,
+          library,
+          ctx,
+        );
+      }
+
       final resolved = <TypeRef>[];
       for (final arg in typeArgs.arguments) {
         resolved.add(TypeRef.fromAnnotation(ctx, library, arg));
       }
+
+      final typeParamDecls = declaredTypeParams(ctx, unspecifiedType);
+      if (typeParamDecls != null) {
+        validateTypeArgBounds(
+          ctx,
+          library,
+          typeParamDecls,
+          resolved,
+          typeArgs.arguments.toList(),
+        );
+      }
+
       return unspecifiedType.copyWith(
         specifiedTypeArgs: resolved,
         nullable: typeAnnotation.question != null,
@@ -399,162 +426,165 @@ class TypeRef {
     if ($class == CoreTypes.dynamic.ref(ctx)) {
       return null;
     }
-    final f = getKnownFields(ctx)[$class];
-    if (f != null) {
-      final d = f[field];
-      if (d != null) {
-        return d.fieldType?.toAlwaysReturnType(ctx, $class, [], {})?.type ??
-            CoreTypes.dynamic.ref(ctx);
-      }
-    }
 
-    if ($class.recordFields.isNotEmpty) {
-      final field0 = $class.recordFields.firstWhereOrNull(
-        (f) => f.name == field,
-      );
-      if (field0 != null) {
-        return field0.type.copyWith(boxed: true);
+    return ctx.withClassTypeScope($class, () {
+      final f = getKnownFields(ctx)[$class];
+      if (f != null) {
+        final d = f[field];
+        if (d != null) {
+          return d.fieldType?.toAlwaysReturnType(ctx, $class, [], {})?.type ??
+              CoreTypes.dynamic.ref(ctx);
+        }
       }
-    }
-    if (ctx.instanceDeclarationsMap[$class.file]!.containsKey($class.name)) {
-      final $declarations =
-          ctx.instanceDeclarationsMap[$class.file]![$class.name]!;
-      if (forSet) {
-        if ($declarations.containsKey('$field*s')) {
-          final f = $declarations['$field*s'];
-          if (f is! MethodDeclaration) {
+
+      if ($class.recordFields.isNotEmpty) {
+        final field0 = $class.recordFields.firstWhereOrNull(
+          (f) => f.name == field,
+        );
+        if (field0 != null) {
+          return field0.type.copyWith(boxed: true);
+        }
+      }
+      if (ctx.instanceDeclarationsMap[$class.file]!.containsKey($class.name)) {
+        final $declarations =
+            ctx.instanceDeclarationsMap[$class.file]![$class.name]!;
+        if (forSet) {
+          if ($declarations.containsKey('$field*s')) {
+            final f = $declarations['$field*s'];
+            if (f is! MethodDeclaration) {
+              throw CompileError(
+                'Cannot query setter type of F${$class.file}:${$class.name}.$field, which is not a method',
+                source,
+              );
+            }
+            final parameter =
+                f.parameters!.parameters.first as SimpleFormalParameter;
+            final annotation = parameter.type;
+            if (annotation == null) {
+              return null;
+            }
+            return TypeRef.fromAnnotation(ctx, $class.file, annotation);
+          }
+        }
+        if ($declarations.containsKey(field)) {
+          final f = $declarations[field];
+          if (f is MethodDeclaration && !f.isGetter && !f.isSetter) {
+            return CoreTypes.function.ref(ctx);
+          }
+          if (f is! VariableDeclaration) {
             throw CompileError(
-              'Cannot query setter type of F${$class.file}:${$class.name}.$field, which is not a method',
+              'Cannot query field type of ${$class.name}.$field, which is not a field',
               source,
             );
           }
-          final parameter =
-              f.parameters!.parameters.first as SimpleFormalParameter;
-          final annotation = parameter.type;
+          final annotation = (f.parent as VariableDeclarationList).type;
+          if (annotation != null) {
+            return TypeRef.fromAnnotation(
+              ctx,
+              $class.file,
+              annotation,
+            ).copyWith(boxed: true);
+          }
+          if (ctx.inferredFieldTypes.containsKey($class.file) &&
+              ctx.inferredFieldTypes[$class.file]!.containsKey($class.name) &&
+              ctx.inferredFieldTypes[$class.file]![$class.name]!.containsKey(
+                field,
+              )) {
+            return ctx.inferredFieldTypes[$class.file]![$class.name]![field]!;
+          }
+          return null;
+        } else if (!forFieldFormal && $declarations.containsKey('$field*g')) {
+          final f = $declarations['$field*g'];
+          if (f is! MethodDeclaration) {
+            throw CompileError(
+              'Cannot query getter type of F${$class.file}:${$class.name}.$field, which is not a method',
+              source,
+            );
+          }
+          final annotation = f.returnType;
           if (annotation == null) {
             return null;
           }
           return TypeRef.fromAnnotation(ctx, $class.file, annotation);
         }
       }
-      if ($declarations.containsKey(field)) {
-        final f = $declarations[field];
-        if (f is MethodDeclaration && !f.isGetter && !f.isSetter) {
-          return CoreTypes.function.ref(ctx);
-        }
-        if (f is! VariableDeclaration) {
-          throw CompileError(
-            'Cannot query field type of ${$class.name}.$field, which is not a field',
-            source,
-          );
-        }
-        final annotation = (f.parent as VariableDeclarationList).type;
-        if (annotation != null) {
-          return TypeRef.fromAnnotation(
-            ctx,
-            $class.file,
-            annotation,
-          ).copyWith(boxed: true);
-        }
-        if (ctx.inferredFieldTypes.containsKey($class.file) &&
-            ctx.inferredFieldTypes[$class.file]!.containsKey($class.name) &&
-            ctx.inferredFieldTypes[$class.file]![$class.name]!.containsKey(
-              field,
-            )) {
-          return ctx.inferredFieldTypes[$class.file]![$class.name]![field]!;
-        }
-        return null;
-      } else if (!forFieldFormal && $declarations.containsKey('$field*g')) {
-        final f = $declarations['$field*g'];
-        if (f is! MethodDeclaration) {
-          throw CompileError(
-            'Cannot query getter type of F${$class.file}:${$class.name}.$field, which is not a method',
-            source,
-          );
-        }
-        final annotation = f.returnType;
-        if (annotation == null) {
-          return null;
-        }
-        return TypeRef.fromAnnotation(ctx, $class.file, annotation);
-      }
-    }
-    final dec = ctx.topLevelDeclarationsMap[$class.file]![$class.name]!;
+      final dec = ctx.topLevelDeclarationsMap[$class.file]![$class.name]!;
 
-    if (dec.isBridge) {
-      final br = dec.bridge as BridgeClassDef;
-      final fd = br.fields[field];
-      if (fd != null) {
-        return TypeRef.fromBridgeAnnotation(
-          ctx,
-          fd.type,
-          specifiedType: $class,
-        );
-      }
-      final get = br.getters[field];
-      if (get != null) {
-        return TypeRef.fromBridgeAnnotation(
-          ctx,
-          get.functionDescriptor.returns,
-          specifiedType: $class,
-        );
-      }
-      final set = br.getters[field];
-      if (set != null) {
-        return TypeRef.fromBridgeAnnotation(
-          ctx,
-          set.functionDescriptor.returns,
-          specifiedType: $class,
-        );
-      }
-      final $extends = br.type.$extends;
-      if ($extends == null) {
-        throw CompileError(
-          'Field $field not found in bridge class ${$class}',
-          source,
-        );
-      } else {
-        final $super = TypeRef.fromBridgeTypeRef(ctx, $extends);
-        return TypeRef.lookupFieldType(
-          ctx,
-          $super.inheritTypeArgsFrom(ctx, $class),
-          field,
-          source: source,
-        );
-      }
-    } else if (dec.declaration is EnumDeclaration && field == 'index') {
-      return CoreTypes.int.ref(ctx);
-    } else {
-      if (forFieldFormal) {
-        throw CompileError(
-          'Field formals did not find field $field in class ${$class}',
-          source,
-        );
-      }
-      final dec0 = dec.declaration as NamedCompilationUnitMember;
-      final $extends = dec0 is ClassDeclaration ? dec0.extendsClause : null;
-      if ($extends == null) {
-        if ($class == CoreTypes.object.ref(ctx)) {
+      if (dec.isBridge) {
+        final br = dec.bridge as BridgeClassDef;
+        final fd = br.fields[field];
+        if (fd != null) {
+          return TypeRef.fromBridgeAnnotation(
+            ctx,
+            fd.type,
+            specifiedType: $class,
+          );
+        }
+        final get = br.getters[field];
+        if (get != null) {
+          return TypeRef.fromBridgeAnnotation(
+            ctx,
+            get.functionDescriptor.returns,
+            specifiedType: $class,
+          );
+        }
+        final set = br.getters[field];
+        if (set != null) {
+          return TypeRef.fromBridgeAnnotation(
+            ctx,
+            set.functionDescriptor.returns,
+            specifiedType: $class,
+          );
+        }
+        final $extends = br.type.$extends;
+        if ($extends == null) {
           throw CompileError(
-            'Field $field not found in class ${$class} or its superclasses',
+            'Field $field not found in bridge class ${$class}',
+            source,
+          );
+        } else {
+          final $super = TypeRef.fromBridgeTypeRef(ctx, $extends);
+          return TypeRef.lookupFieldType(
+            ctx,
+            $super.inheritTypeArgsFrom(ctx, $class),
+            field,
+            source: source,
+          );
+        }
+      } else if (dec.declaration is EnumDeclaration && field == 'index') {
+        return CoreTypes.int.ref(ctx);
+      } else {
+        if (forFieldFormal) {
+          throw CompileError(
+            'Field formals did not find field $field in class ${$class}',
             source,
           );
         }
-        return TypeRef.lookupFieldType(ctx, CoreTypes.object.ref(ctx), field);
-      } else {
-        final $super =
-            ctx.visibleTypes[$class.file]![$extends
-                    .superclass
-                    .name
-                    .stringValue ??
-                $extends.superclass.name.value()]!;
-        return TypeRef.lookupFieldType(
-          ctx,
-          $super.inheritTypeArgsFrom(ctx, $class),
-          field,
-        );
+        final dec0 = dec.declaration as NamedCompilationUnitMember;
+        final $extends = dec0 is ClassDeclaration ? dec0.extendsClause : null;
+        if ($extends == null) {
+          if ($class == CoreTypes.object.ref(ctx)) {
+            throw CompileError(
+              'Field $field not found in class ${$class} or its superclasses',
+              source,
+            );
+          }
+          return TypeRef.lookupFieldType(ctx, CoreTypes.object.ref(ctx), field);
+        } else {
+          final $super =
+              ctx.visibleTypes[$class.file]![$extends
+                      .superclass
+                      .name
+                      .stringValue ??
+                  $extends.superclass.name.value()]!;
+          return TypeRef.lookupFieldType(
+            ctx,
+            $super.inheritTypeArgsFrom(ctx, $class),
+            field,
+          );
+        }
       }
-    }
+    });
   }
 
   /// Resolve the full type chain of this [TypeRef]. If it or its supertypes
@@ -594,7 +624,7 @@ class TypeRef {
       );
     }
 
-    final $cached = _cache[file]![name]!;
+    final $cached = ctx.typeRefCache[file]![name]!;
     if ($cached.resolved) {
       return $cached.copyWith(
         boxed: boxed,
@@ -781,6 +811,17 @@ class TypeRef {
     }
 
     for (final implementsName in implementsNames) {
+      final implName = implementsName.name.value();
+      final implType = ctx.visibleTypes[file]?[implName];
+      if (implType == null) {
+        throw CompileError(
+          "'$implName' can't be used as a superinterface",
+          implementsName,
+          file,
+          ctx,
+        );
+      }
+
       final typeParams =
           implementsName.typeArguments?.arguments
               .map((a) => TypeRef.fromAnnotation(ctx, file, a))
@@ -797,7 +838,7 @@ class TypeRef {
               .toList() ??
           [];
       $implements.add(
-        ctx.visibleTypes[file]![implementsName.name.value()]!
+        implType
             .copyWith(specifiedTypeArgs: typeParams)
             .resolveTypeChain(
               ctx,
@@ -820,11 +861,11 @@ class TypeRef {
       specifiedTypeArgs: resolvedSpecifiedTypeArgs,
     );
 
-    for (final $file in _inverseCache[this]!) {
+    for (final $file in ctx.typeRefInverseCache[this]!) {
       ctx.visibleTypes[$file]![name] ??= resolvedRef;
     }
 
-    final fileCache = _cache[file]!;
+    final fileCache = ctx.typeRefCache[file]!;
     if (fileCache[name] == null || !fileCache[name]!.resolved) {
       fileCache[name] = resolvedRef.copyWith(boxed: true);
     }
@@ -842,6 +883,17 @@ class TypeRef {
   RuntimeType toRuntimeType(CompilerContext ctx) {
     final ta = [for (final t in specifiedTypeArgs) t.toRuntimeType(ctx)];
     return RuntimeType(ctx.typeRefIndexMap[this]!, ta);
+  }
+
+  /// Convert this type reference to a [RuntimeTypeSet] suitable for the
+  /// runtimeTypes constant pool.
+  RuntimeTypeSet toRuntimeTypeSet(CompilerContext ctx) {
+    final resolved = resolveTypeChain(ctx);
+    return RuntimeTypeSet(
+      ctx.typeRefIndexMap[this]!,
+      resolved.getRuntimeIndices(ctx),
+      [for (final t in specifiedTypeArgs) t.toRuntimeTypeSet(ctx)],
+    );
   }
 
   List<TypeRef> get allSupertypes => [
@@ -1034,25 +1086,51 @@ class TypeRef {
     }
   }
 
+  /// Pushes type parameters onto the generic scope stack. Each call must be
+  /// balanced by a call to [unloadTemporaryTypes].
   static void loadTemporaryTypes(
     CompilerContext ctx,
     List<TypeParameter>? typeParams, [
     int? library,
   ]) {
-    if (typeParams != null) {
-      for (final param in typeParams) {
-        ctx.temporaryTypes[library ?? ctx.library] ??= {};
-        final bound = param.bound;
-        final name = param.name.lexeme;
-        if (bound != null) {
-          ctx.temporaryTypes[library ?? ctx.library]![name] =
-              TypeRef.fromAnnotation(ctx, library ?? ctx.library, bound);
-        } else {
-          ctx.temporaryTypes[library ?? ctx.library]![name] = CoreTypes.dynamic
-              .ref(ctx);
-        }
-      }
+    if (typeParams == null || typeParams.isEmpty) return;
+    final lib = library ?? ctx.library;
+    // Push scope first so later params can reference earlier ones
+    // (e.g. class C<X extends A, Y extends X>).
+    final scope = <String, TypeRef>{};
+    ctx.pushGenericScope(scope, lib);
+    for (final param in typeParams) {
+      final bound = param.bound;
+      final name = param.name.lexeme;
+      scope[name] = bound != null
+          ? TypeRef.fromAnnotation(ctx, lib, bound)
+          : CoreTypes.dynamic.ref(ctx);
     }
+  }
+
+  /// Pops type parameters previously pushed by [loadTemporaryTypes].
+  /// Asserts that the scope being popped matches the expected [typeParams].
+  static void unloadTemporaryTypes(
+    CompilerContext ctx,
+    List<TypeParameter>? typeParams, [
+    int? library,
+  ]) {
+    if (typeParams == null || typeParams.isEmpty) return;
+    assert(
+      () {
+        final top = ctx.peekGenericScope();
+        if (top == null) return false;
+        final (lib, scope) = top;
+        if (lib != (library ?? ctx.library)) return false;
+        for (final param in typeParams) {
+          if (!scope.containsKey(param.name.lexeme)) return false;
+        }
+        return true;
+      }(),
+      'unloadTemporaryTypes: top of scope stack does not match expected '
+      'type params [${typeParams.map((p) => p.name.lexeme).join(', ')}]',
+    );
+    ctx.popGenericScope();
   }
 }
 
@@ -1131,12 +1209,17 @@ class AlwaysReturnType implements ReturnType {
         true,
       );
     }
-    return AlwaysReturnType.fromAnnotation(
-      ctx,
-      type.file,
-      m.declaration!.returnType,
-      fallback,
-    );
+    final MethodDeclaration decl = m.declaration!;
+    return ctx.withClassTypeScope(type, () {
+      return ctx.withTypeParamScope(decl.typeParameters?.typeParameters, () {
+        return AlwaysReturnType.fromAnnotation(
+          ctx,
+          type.file,
+          decl.returnType,
+          fallback,
+        );
+      });
+    });
   }
 
   factory AlwaysReturnType.fromStaticMethod(
@@ -1298,6 +1381,68 @@ class TypeArgDependentReturnType implements ReturnType {
     List<TypeRef> typeArgs = const [],
   }) {
     return AlwaysReturnType(typeArgs[typeArgIndex], false);
+  }
+}
+
+/// Returns the number of declared type parameters for a type, or null if
+/// the declaration can't be found
+int? declaredTypeParamCount(CompilerContext ctx, TypeRef type) {
+  if (type.genericParams.isNotEmpty) return type.genericParams.length;
+  final dec = ctx.topLevelDeclarationsMap[type.file]?[type.name];
+  if (dec == null) return null;
+  final decl = dec.declaration;
+  if (decl is ClassDeclaration) {
+    return decl.typeParameters?.typeParameters.length ?? 0;
+  }
+  if (decl is EnumDeclaration) {
+    return decl.typeParameters?.typeParameters.length ?? 0;
+  }
+  return null;
+}
+
+/// Returns the declared [TypeParameter] list for a type, or null if not found.
+List<TypeParameter>? declaredTypeParams(CompilerContext ctx, TypeRef type) {
+  final dec = ctx.topLevelDeclarationsMap[type.file]?[type.name];
+  if (dec == null) return null;
+  final decl = dec.declaration;
+  if (decl is ClassDeclaration) return decl.typeParameters?.typeParameters;
+  if (decl is EnumDeclaration) return decl.typeParameters?.typeParameters;
+  return null;
+}
+
+/// Validate that [argTypes] satisfy the declared bounds of [typeParams].
+/// Skips bounds that reference sibling type params or can't be resolved.
+void validateTypeArgBounds(
+  CompilerContext ctx,
+  int library,
+  List<TypeParameter> typeParams,
+  List<TypeRef> argTypes,
+  List<TypeAnnotation> astArgs,
+) {
+  final paramNames = {for (final p in typeParams) p.name.lexeme};
+  for (var i = 0; i < argTypes.length && i < typeParams.length; i++) {
+    final bound = typeParams[i].bound;
+    if (bound == null) continue;
+    if (bound is NamedType && paramNames.contains(bound.name.lexeme)) continue;
+    try {
+      final boundType = TypeRef.fromAnnotation(
+        ctx,
+        library,
+        bound,
+      ).resolveTypeChain(ctx);
+      final argType = argTypes[i].resolveTypeChain(ctx);
+      if (!argType.isAssignableTo(ctx, boundType, forceAllowDynamic: false)) {
+        throw CompileError(
+          "Type argument '${astArgs[i]}' doesn't conform "
+          "to bound '$bound' of '${typeParams[i].name.lexeme}'",
+          astArgs[i],
+          library,
+          ctx,
+        );
+      }
+    } on CompileError catch (e) {
+      if (e.toString().contains("doesn't conform")) rethrow;
+    }
   }
 }
 

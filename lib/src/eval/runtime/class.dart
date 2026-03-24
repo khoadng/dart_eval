@@ -2,6 +2,7 @@ import 'package:dart_eval/dart_eval_bridge.dart';
 import 'package:dart_eval/src/eval/compiler/declaration/field.dart';
 import 'package:dart_eval/src/eval/runtime/exception.dart';
 import 'package:dart_eval/src/eval/runtime/function.dart';
+import 'package:dart_eval/src/eval/runtime/type.dart';
 import 'package:dart_eval/src/eval/shared/stdlib/core/base.dart';
 import 'package:dart_eval/src/eval/shared/stdlib/core/num.dart';
 import 'package:dart_eval/src/eval/shared/stdlib/core/type.dart';
@@ -25,6 +26,24 @@ abstract class $Value {
   dynamic get $reified;
 }
 
+/// Mixin that provides reified type argument storage.
+/// Applied to $InstanceImpl and generic bridge types ($List, $Map, $Set).
+///
+/// Bridge authors wrapping generic types should add `with $TypeArgHolder`
+/// to their class declaration. Non-generic bridge types don't need it —
+/// the runtime handles the absence gracefully (no TAV = no type arg check).
+mixin $TypeArgHolder {
+  RuntimeType? _typeArgVector;
+
+  /// The full runtime type including type arguments.
+  RuntimeType fullRuntimeType(Runtime runtime) =>
+      _typeArgVector ??
+      RuntimeType((this as $Value).$getRuntimeType(runtime), const []);
+
+  /// Set the full runtime type (base type + type args).
+  set typeArgVector(RuntimeType rt) => _typeArgVector = rt;
+}
+
 /// Interface for objects with properties and methods. Given the nature
 /// of Dart (that virtually everything is an object), most classes
 /// (including wrappers) implement this interface.
@@ -37,7 +56,7 @@ abstract class $Instance implements $Value {
 }
 
 /// Usually an instance of a class defined inside the evaluated code.
-class $InstanceImpl implements $Instance {
+class $InstanceImpl with $TypeArgHolder implements $Instance {
   /// Class type. For signature definitions and implementations of methods
   /// and fields.
   final EvalClass evalClass;

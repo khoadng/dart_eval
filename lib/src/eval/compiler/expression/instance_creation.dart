@@ -5,6 +5,7 @@ import 'package:dart_eval/src/eval/compiler/context.dart';
 import 'package:dart_eval/src/eval/compiler/errors.dart';
 import 'package:dart_eval/src/eval/compiler/expression/method_invocation.dart';
 import 'package:dart_eval/src/eval/compiler/helpers/argument_list.dart';
+import 'package:dart_eval/src/eval/compiler/helpers/type_args.dart';
 import 'package:dart_eval/src/eval/compiler/offset_tracker.dart';
 import 'package:dart_eval/src/eval/compiler/reference.dart';
 import 'package:dart_eval/src/eval/compiler/type.dart';
@@ -29,28 +30,32 @@ Variable compileInstanceCreation(
   final staticType = $resolved.concreteTypes.first;
   final dec0 = resolveStaticMethod(ctx, staticType, name);
 
-  //final List<Variable> _args;
-  //final Map<String, Variable> _namedArgs;
+  List<TypeRef?> argTypes = const [];
 
   if (dec0.isBridge) {
     final bridge = dec0.bridge;
     final fnDescriptor = (bridge as BridgeConstructorDef).functionDescriptor;
     compileArgumentListWithBridge(ctx, e.argumentList, fnDescriptor);
-
-    //_args = argsPair.first;
-    //_namedArgs = argsPair.second;
   } else {
     final dec = dec0.declaration!;
     final fpl = (dec as ConstructorDeclaration).parameters.parameters;
 
-    compileArgumentList(
-      ctx,
-      e.argumentList,
-      staticType.file,
-      fpl,
-      dec,
-      source: e,
-    );
+    // Load class type params so parameter type annotations (T) resolve
+    final parent = dec.parent;
+    final classTypeParams = parent is ClassDeclaration
+        ? parent.typeParameters?.typeParameters
+        : null;
+    ctx.withTypeParamScope(classTypeParams, () {
+      final argsPair = compileArgumentList(
+        ctx,
+        e.argumentList,
+        staticType.file,
+        fpl,
+        dec,
+        source: e,
+      );
+      argTypes = argsPair.first.map((v) => v.type).toList();
+    }, staticType.file);
     //_args = argsPair.first;
     //_namedArgs = argsPair.second;
   }
@@ -91,8 +96,25 @@ Variable compileInstanceCreation(
     ctx.pushOp(PushReturnValue.make(), PushReturnValue.LEN);
   }
 
-  return Variable.alloc(
+  var resultType = $resolved.concreteTypes.first.copyWith(boxed: true);
+
+  resultType = applyAstTypeArgs(
     ctx,
-    $resolved.concreteTypes.first.copyWith(boxed: true),
+    resultType,
+    e.constructorName.type.typeArguments,
   );
+  if (resultType.specifiedTypeArgs.isEmpty && !dec0.isBridge) {
+    resultType = inferConstructorTypeArgs(
+      ctx,
+      dec0.declaration,
+      resultType,
+      argTypes,
+    );
+  }
+
+  final result = Variable.alloc(ctx, resultType);
+
+  emitSetInstanceTAV(ctx, result, resultType);
+
+  return result;
 }
