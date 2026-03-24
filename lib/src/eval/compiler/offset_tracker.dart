@@ -12,7 +12,23 @@ class OffsetTracker {
     _deferredOffsets[location] = offset;
   }
 
+  final Map<int, int> _frameSizes = {};
+
+  void setFrameSize(int pushScopePosition, int size) {
+    _frameSizes[pushScopePosition] = size;
+  }
+
   List<EvcOp> apply(List<EvcOp> source) {
+    _frameSizes.forEach((pos, size) {
+      final op = source[pos] as PushScope;
+      source[pos] = PushScope.make(
+        op.sourceFile,
+        op.sourceOffset,
+        op.frName,
+        size,
+      );
+    });
+
     _deferredOffsets.forEach((pos, offset) {
       final op = source[pos];
       if (op is Call) {

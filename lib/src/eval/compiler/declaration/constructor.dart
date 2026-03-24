@@ -188,6 +188,7 @@ void compileConstructorDeclaration(
     }
 
     ctx.endAllocScope(popValues: false);
+    endMethod(ctx);
     return;
   }
 
@@ -469,6 +470,7 @@ void compileConstructorDeclaration(
   }
 
   ctx.endAllocScope(popValues: false);
+  endMethod(ctx);
 }
 
 void compileDefaultConstructor(
@@ -619,6 +621,7 @@ void compileDefaultConstructor(
   }
 
   ctx.endAllocScope(popValues: false);
+  endMethod(ctx);
 }
 
 Map<String, int> _getFieldIndices(

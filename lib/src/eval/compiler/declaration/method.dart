@@ -104,6 +104,7 @@ int compileMethodDeclaration(
   }
 
   ctx.endAllocScope();
+  endMethod(ctx);
 
   if (d.isStatic) {
     ctx.topLevelDeclarationPositions[ctx.library]!['$parentName.$methodName'] =

@@ -155,6 +155,7 @@ extension TearOff on Variable {
 
     ctx.pushOp(Return.make(rV.scopeFrameOffset), Return.LEN);
     ctx.endAllocScope();
+    endMethod(ctx);
 
     ctx.rewriteOp(jumpOver, JumpConstant.make(ctx.out.length), 0);
 

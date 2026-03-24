@@ -36,8 +36,16 @@ abstract class AbstractScopeContext {
 }
 
 mixin ScopeContext on Object implements AbstractScopeContext {
+  int _scopeFrameOffset = 0;
   @override
-  int scopeFrameOffset = 0;
+  int get scopeFrameOffset => _scopeFrameOffset;
+  @override
+  set scopeFrameOffset(int v) {
+    _scopeFrameOffset = v;
+    if (v > peakScopeFrameOffset) peakScopeFrameOffset = v;
+  }
+  int peakScopeFrameOffset = 0;
+  final peakScopeFrameOffsetStack = <int>[];
   @override
   List<Map<String, Variable>> locals = [];
   @override
@@ -184,6 +192,7 @@ class CompilerContext with ScopeContext {
 
   Map<int, Map<String, Map<String, Declaration>>> instanceDeclarationsMap = {};
   late OffsetTracker offsetTracker = OffsetTracker(this);
+  final methodScopeStack = <int>[];
   Map<int, Map<String, TypeRef>> visibleTypes = {};
   Map<int, Map<String, TypeRef>> temporaryTypes = {};
   Map<int, Map<String, DeclarationOrPrefix>> visibleDeclarations = {};

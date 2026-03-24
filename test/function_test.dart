@@ -471,5 +471,21 @@ void main() {
 
       expect(runtime.executeLib('package:example/main.dart', 'main'), 3);
     });
+
+    test('function with more than 255 locals does not crash', () {
+      final vars = StringBuffer();
+      for (var i = 0; i < 300; i++) {
+        vars.writeln('final v$i = $i;');
+      }
+      vars.writeln('return v299;');
+
+      final runtime = compiler.compileWriteAndLoad({
+        'example': {
+          'main.dart': 'int main() { $vars }',
+        },
+      });
+
+      expect(runtime.executeLib('package:example/main.dart', 'main'), 299);
+    });
   });
 }

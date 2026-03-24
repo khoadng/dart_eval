@@ -38,6 +38,8 @@ class Variable {
 
   /// Allocates a variable of the given [type] on the scope frame.
   /// Automatically increases the frame offset and [ScopeContext.allocNest].
+  static const maxFrameSize = 8192;
+
   factory Variable.alloc(
     ScopeContext ctx,
     TypeRef type, {
@@ -47,6 +49,11 @@ class Variable {
     List<TypeRef> concreteTypes = const [],
     CallingConvention callingConvention = CallingConvention.static,
   }) {
+    if (ctx.scopeFrameOffset >= maxFrameSize) {
+      throw CompileError(
+        'Frame overflow: exceeded $maxFrameSize locals in a single scope',
+      );
+    }
     ctx.allocNest.last++;
     return Variable(
       ctx.scopeFrameOffset++,

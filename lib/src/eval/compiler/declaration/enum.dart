@@ -52,6 +52,7 @@ void compileEnumDeclaration(
   final pos = beginMethod(ctx, d, d.offset, '$clsName.index (get)');
   ctx.pushOp(PushObjectPropertyImpl.make(0, 0), PushObjectPropertyImpl.length);
   ctx.pushOp(Return.make(1), Return.LEN);
+  endMethod(ctx);
   ctx.instanceDeclarationPositions[ctx.library]![clsName]![0]['index'] = pos;
   i++;
   i++;
@@ -118,6 +119,7 @@ void compileEnumDeclaration(
     ctx.topLevelGlobalInitializers[ctx.library]![name] = pos;
     ctx.runtimeGlobalInitializerMap[index] = pos;
     ctx.pushOp(Return.make(V.scopeFrameOffset), Return.LEN);
+    endMethod(ctx);
     idx++;
   }
 

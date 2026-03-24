@@ -42,5 +42,6 @@ void compileTopLevelVariableDeclaration(
     ctx.topLevelGlobalInitializers[ctx.library]![varName] = pos;
     ctx.runtimeGlobalInitializerMap[index] = pos;
     ctx.pushOp(Return.make(V.scopeFrameOffset), Return.LEN);
+    endMethod(ctx);
   }
 }

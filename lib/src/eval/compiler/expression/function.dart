@@ -128,6 +128,7 @@ Variable compileFunctionExpression(
     }
   }
 
+  endMethod(ctx);
   ctx.rewriteOp(jumpOver, JumpConstant.make(ctx.out.length), 0);
 
   ctx.restoreState(ctxSaveState);

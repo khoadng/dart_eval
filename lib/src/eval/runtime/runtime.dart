@@ -522,6 +522,7 @@ class Runtime {
           ...Evc.i32b(op.sourceFile),
           ...Evc.i32b(op.sourceOffset),
           ...Evc.istr(op.frName),
+          ...Evc.i16b(op.frameSize),
         ];
       case PopScope _:
         return [Evc.OP_POPSCOPE];

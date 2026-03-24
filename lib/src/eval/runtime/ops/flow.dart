@@ -28,21 +28,26 @@ class PushScope implements EvcOp {
   PushScope(Runtime runtime)
     : sourceFile = runtime._readInt32(),
       sourceOffset = runtime._readInt32(),
-      frName = runtime._readString();
+      frName = runtime._readString(),
+      frameSize = runtime._readInt16();
 
-  PushScope.make(this.sourceFile, this.sourceOffset, this.frName);
+  PushScope.make(this.sourceFile, this.sourceOffset, this.frName,
+      [this.frameSize = 255]);
 
   final int sourceFile;
   final int sourceOffset;
   final String frName;
+  final int frameSize;
 
   static int len(PushScope s) {
-    return Evc.BASE_OPLEN + Evc.I32_LEN * 2 + Evc.istrLen(s.frName);
+    return Evc.BASE_OPLEN + Evc.I32_LEN * 2 + Evc.istrLen(s.frName) +
+        Evc.I16_LEN;
   }
 
   @override
   void run(Runtime runtime) {
-    final frame = List<Object?>.filled(255, null);
+    final size = frameSize < 255 ? 255 : frameSize;
+    final frame = List<Object?>.filled(size, null);
     runtime.stack.add(frame);
     runtime.scopeNameStack.add(frName);
     runtime.frame = frame;

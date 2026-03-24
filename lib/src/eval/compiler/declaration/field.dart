@@ -53,6 +53,7 @@ void compileFieldDeclaration(
         ctx.runtimeGlobalInitializerMap[index] = pos;
         ctx.pushOp(Return.make(V.scopeFrameOffset), Return.LEN);
         ctx.endAllocScope(popValues: false);
+        endMethod(ctx);
       } else {
         ctx.topLevelVariableInferredTypes[ctx
                 .library]!['$parentName.$fieldName'] =

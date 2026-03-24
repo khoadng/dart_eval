@@ -12,10 +12,20 @@ int beginMethod(
   int offset,
   String name,
 ) {
+  ctx.peakScopeFrameOffsetStack.add(ctx.peakScopeFrameOffset);
+  ctx.peakScopeFrameOffset = 0;
   final position = ctx.out.length;
+  ctx.methodScopeStack.add(position);
   var op = PushScope.make(ctx.library, offset, name);
   ctx.pushOp(op, PushScope.len(op));
   return position;
+}
+
+void endMethod(CompilerContext ctx) {
+  if (ctx.methodScopeStack.isEmpty) return;
+  final position = ctx.methodScopeStack.removeLast();
+  ctx.offsetTracker.setFrameSize(position, ctx.peakScopeFrameOffset);
+  ctx.peakScopeFrameOffset = ctx.peakScopeFrameOffsetStack.removeLast();
 }
 
 void setupAsyncFunction(CompilerContext ctx) {

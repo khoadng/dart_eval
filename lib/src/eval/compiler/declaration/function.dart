@@ -128,6 +128,7 @@ void compileFunctionDeclaration(FunctionDeclaration d, CompilerContext ctx) {
   }
 
   ctx.endAllocScope();
+  endMethod(ctx);
 
   if (!(stInfo.willAlwaysReturn || stInfo.willAlwaysThrow)) {
     ctx.pushOp(Return.make(-1), Return.LEN);
