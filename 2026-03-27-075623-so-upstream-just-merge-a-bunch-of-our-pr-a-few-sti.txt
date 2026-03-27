@@ -1,0 +1,1232 @@
+ ▐▛███▜▌   Claude Code v2.1.84
+▝▜█████▛▘  Opus 4.6 (1M context) · Claude Max
+  ▘▘ ▝▝    ~/Work/incremancer2_3d/packages/dart_eval
+
+✻ Conversation compacted (ctrl+o for history)
+
+
+❯ /compact                                                                      
+  ⎿  Compacted (ctrl+o to see full summary)
+  ⎿  Read ../typhon_dart/lib/src/dart_program.dart (144 lines)
+  ⎿  Read ../deval/lib/dart_eval_security.dart (7 lines)
+  ⎿  Read ../deval/pubspec.yaml (39 lines)
+  ⎿  Read ../deval/bin/dart_eval.dart (133 lines)
+  ⎿  Read ../deval/lib/src/eval/eval.dart (59 lines)
+  ⎿  Plan file referenced (~/.claude/plans/snuggly-tumbling-music.md)
+
+❯ so i need to burn all of my token before next 8hours weekly reset, i still    
+have like 55% left which kinda a waste wihout using it, what is the way we      
+could do this when i asleep, anything that require you to run for a long long   
+time that could benefit ? maybe research and think about how we will change     
+deval to be more performance, more streamline, faster and some shit?            
+
+⏺ Good idea -- let me burn tokens on deep research that'll actually be useful.
+  I'll launch several parallel research agents to analyze deval's internals and
+  produce actionable improvement plans.
+
+  Here's what I'll cover:
+
+  1. Runtime VM performance -- op dispatch, boxing overhead, memory layout
+  2. Compiler optimizations -- what passes are missing, constant folding, dead
+  code
+  3. Bytecode format -- compare with real VMs, suggest improvements
+  4. Bridge/interop overhead -- $Value wrapping cost, stdlib efficiency
+  5. Overall architecture streamlining -- redundancy, unnecessary indirection
+
+  Let me kick them all off:
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ what about referencing / cloneing dart VM and looks at their architecture?    
+maybe look at other VM too for refece? make sure you write a toons of artifacts 
+ and reports so that when i wake up i have everything i need to consider? dont  
+do anything yet before i give u a go                                            
+
+⏺ Good call. Here's what I'd run:
+
+  Research agents (all parallel, all background):
+
+  1. Dart VM internals -- clone dart-lang/sdk, study the VM's bytecode format
+  (kernel binary / dill), op dispatch (interpreter vs JIT), object
+  representation, how they handle boxing/unboxing, GC interaction, inline caches
+  2. Lua VM -- the gold standard for small embeddable VMs. Register-based (like
+  deval), study their op encoding, constant folding, upvalue handling, string
+  interning
+  3. WASM / V8 Ignition -- stack-based but highly optimized dispatch. Study
+  their bytecode compactness, handler table approach, inline caching
+  4. deval runtime deep dive -- read every op, profile the dispatch loop,
+  catalog all boxing/unboxing points, measure $Value overhead, find hot paths
+  5. deval compiler deep dive -- trace the full pipeline from source -> AST ->
+  bytecode, find missing optimization passes, compare with what Dart/Lua/V8 do
+  6. Bytecode format comparison -- compare deval's EVC format against Dart
+  kernel, Lua chunk, WASM binary section-by-section
+  7. Bridge architecture analysis -- study how LuaJIT FFI, GraalVM polyglot, and
+   Dart VM's native interop minimize crossing overhead vs deval's $Value
+  wrapping
+
+  Output: Each agent writes a detailed report file to docs/research/ with
+  findings, diagrams, and concrete recommendations. Plus a master summary tying
+  it all together.
+
+  That's probably 30-40 minutes of heavy compute across all agents. You'll wake
+  up to a docs/research/ folder full of actionable analysis.
+
+  Say "go" when ready.
+
+❯ 30 40 is still too short, what about several hours? i need you to check the   
+report, checkout their output and think deeply about all the things related to  
+it until you come up with some thing that works great as a Dart intepreter, i   
+want it be like Lua and javasciprt where things are really easy to use (minus   
+allo fthe pitfall ofc)                                                          
+
+⏺ Now we're talking. Here's the multi-hour pipeline:
+
+  Phase 1: Raw Research (~45 min, 7 parallel agents)
+  - Dart VM, Lua VM, V8 Ignition, WASM, plus deval runtime/compiler/bridge deep
+  dives
+  - Each writes raw findings to docs/research/
+
+  Phase 2: Review & Cross-Reference (~30 min)
+  - I read every report, identify patterns, contradictions, gaps
+  - Spawn follow-up agents for anything that needs deeper digging
+  - Write a cross-reference analysis
+
+  Phase 3: Deep Dives on Key Insights (~45 min)
+  - Whatever Phase 2 surfaces -- maybe LuaJIT's trace compilation, V8's hidden
+  classes, Dart VM's inline caches
+  - Read actual source code from cloned repos, not just docs
+  - Focus on what's transferable to a Dart interpreter
+
+  Phase 4: Design Synthesis (~1 hr)
+  - Take everything learned and design what "deval v2" should look like
+  - Object model, op dispatch, bytecode format, bridge system, stdlib
+  - Write detailed design docs with tradeoffs explained
+  - Compare current deval vs proposed, concrete migration path
+
+  Phase 5: Usability & DX Design (~45 min)
+  - The Lua/JS ease-of-use angle specifically
+  - Plugin API, embedding API, error messages, debugging experience
+  - What makes Lua's C API so good? What makes JS easy to embed (V8/QuickJS)?
+  - Design the "ideal deval API" for consumers
+
+  Phase 6: Master Report (~30 min)
+  - Everything consolidated into one actionable document
+  - Prioritized recommendations, estimated effort, dependency graph
+  - "If you only do 3 things, do these"
+
+  That's ~4 hours of sustained compute. You wake up to docs/research/ with 8-10
+  detailed reports plus a master synthesis.
+
+  Say go and go to sleep.
+
+❯ make sure you wirte your memory and recall memory ok, since this will be like 
+ several session and several compact i think?                                   
+
+⏺ Good point -- this will definitely hit multiple compactions. Let me set up
+  memory first so I don't lose track across context resets.
+
+  Recalled 1 memory (ctrl+o to expand)
+
+⏺ Now let me write the project memory for this research effort:
+
+  Wrote 3 memories (ctrl+o to expand)
+
+⏺ Memory is set up. Across compactions I'll:
+
+  1. Check MEMORY.md to recall what phase I'm in
+  2. Read docs/research/ to see what's already been written
+  3. Update the project memory as phases complete
+  4. Write phase markers in the reports themselves so I know where I left off
+
+  Each report file will have a header with phase number and completion status,
+  so even if I lose all context, I can read the files and pick up exactly where
+  I stopped.
+
+  Say go and sleep well.
+
+✻ Baked for 34s
+
+❯ go, see you next morning                                                      
+
+⏺ Sleep well! Starting now.
+
+⏺ Bash(mkdir -p
+      /Users/khoa/Work/incremancer2_3d/packages/dart_eval/docs/research)
+  ⎿  Done
+⏺ Launching Phase 1 -- 7 parallel research agents:
+
+⏺ 7 agents launched (ctrl+o to expand)
+   ├─ Research Dart VM internals
+   │  ⎿  Running in the background
+   ├─ Research Lua VM internals
+   │  ⎿  Running in the background
+   ├─ Research V8/QuickJS internals
+   │  ⎿  Running in the background
+   ├─ Research WASM VM architecture
+   │  ⎿  Running in the background
+   ├─ Deep dive deval runtime
+   │  ⎿  Running in the background
+   ├─ Deep dive deval compiler
+   │  ⎿  Running in the background
+   └─ Research bridge/interop patterns
+      ⎿  Running in the background
+
+⏺ All 7 Phase 1 agents are running in the background:
+
+  1. Dart VM architecture
+  2. Lua VM architecture
+  3. V8 + QuickJS architecture
+  4. WASM VM architecture
+  5. deval runtime deep analysis
+  6. deval compiler deep analysis
+  7. Bridge/interop patterns comparison
+
+  I'll be notified as each completes, then I'll read all reports,
+  cross-reference, and continue through Phases 2-6. Everything goes to
+  docs/research/. See you in the morning.
+
+✻ Cooked for 2m 1s
+
+⏺ Agent "Deep dive deval runtime" completed
+
+⏺ deval runtime analysis is done -- found some critical bottlenecks (megamorphic
+   dispatch, $Bridge try/catch, double allocation on primitives). Waiting for
+  the other 6 agents to finish before starting Phase 2.
+
+⏺ Agent "Deep dive deval compiler" completed
+
+⏺ deval compiler analysis done too -- big finding is no IR (AST -> bytecode
+  directly), which makes optimization passes impossible. Also found some bugs
+  (broken switch logic, commented-out prescan). 5 agents still running, waiting
+  for all to complete.
+
+⏺ Agent "Research bridge/interop patterns" completed
+
+⏺ Bridge/interop research done -- confirms deval is uniquely expensive
+  (heap-allocates every primitive crossing, 628-line wrappers, exception-driven
+  control flow). Has 7 concrete proposals. 4 agents still running (Dart VM, Lua,
+   V8/QuickJS, WASM).
+
+⏺ Agent "Research Lua VM internals" completed
+
+⏺ Lua VM research done -- very thorough, covers instruction encoding, NaN
+  boxing, table internals, LuaJIT trace compilation, and the C API design
+  philosophy. 3 agents still running (Dart VM, V8/QuickJS, WASM).
+
+⏺ Agent "Research WASM VM architecture" completed
+
+⏺ WASM research done -- covers binary format, wasm3's meta-machine dispatch
+  (interesting for deval), structured control flow, validation-first design, and
+   capability-based sandboxing. 2 agents still running (Dart VM, V8/QuickJS).
+
+⏺ Agent "Research Dart VM internals" completed
+
+⏺ Dart VM research done -- covers tagged pointers, inline caching, 5-state
+  switchable calls, generational GC, async/await SuspendState, and 8 concrete
+  takeaways for deval. 1 agent still running (V8/QuickJS).
+
+⏺ Agent "Research V8/QuickJS internals" completed
+
+⏺ All 7 Phase 1 agents complete! Starting Phase 2 -- cross-referencing all
+  findings.
+
+⏺ Let me read all 7 reports to cross-reference:
+
+  Read 4 files (ctrl+o to expand)
+
+⏺ Large files -- let me read them in parts:
+
+  Read 3 files (ctrl+o to expand)
+
+⏺ Now let me read the remaining reports (deval runtime analysis, compiler
+  analysis, bridge patterns):
+
+  Read 3 files (ctrl+o to expand)
+
+⏺ All 7 reports read. Now writing the Phase 2 cross-reference analysis.
+
+⏺ Write(docs/research/08_cross_reference.md)
+  ⎿  Wrote 276 lines to docs/research/08_cross_reference.md
+       1 # Cross-Reference Analysis
+       2 Phase: 2 | Status: COMPLETE
+       3 
+       4 ## 1. Universal Patterns Across All VMs
+       5 
+       6 Every high-performance VM we studied shares these architectural 
+         choices:
+       7 
+       8 ### 1.1 Unboxed Primitives
+       9 - **Dart VM**: Smi (tag 0, upper bits = int value). Zero allocat
+         ion for integers.
+      10 - **Lua**: TValue tagged union. Numbers stored inline, no alloca
+         tion.
+     … +266 lines (ctrl+o to expand)
+⏺ Now launching Phases 3-5 in parallel -- they're mostly independent:
+
+⏺ 3 agents launched (ctrl+o to expand)
+   ├─ Phase 3: Deep dive key insights
+   │  ⎿  Running in the background
+   ├─ Phase 4: Design deval v2 architecture
+   │  ⎿  Running in the background
+   └─ Phase 5: DX and usability design
+      ⎿  Running in the background
+
+⏺ Phases 3, 4, 5 all running in parallel:
+  - Phase 3: Deep dives on value representation in Dart, string interning,
+  bytecode encoding, switch dispatch performance
+  - Phase 4: Full architecture design for deval v2 (bytecode format, object
+  model, runtime, bridge system, compiler, migration path)
+  - Phase 5: DX and usability design (embedding API, plugin system, error
+  messages, API comparisons with Lua/QuickJS/Wren)
+
+  Waiting for all three to complete, then I'll write the Phase 6 master report.
+
+✻ Crunched for 3m 48s
+
+⏺ Agent "Phase 4: Design deval v2 architecture" completed
+
+⏺ Phase 4 (architecture design) done -- full design for bytecode format, value
+  representation, runtime, object model, bridge system, compiler changes, and
+  migration path. 2 agents still running (Phase 3 deep dives, Phase 5 DX
+  design).
+
+⏺ Agent "Phase 5: DX and usability design" completed
+
+⏺ Phase 5 (DX design) done -- 22-method public API, auto-marshalling, 15-18x
+  boilerplate reduction, capability-based security, game engine patterns. 1
+  agent still running (Phase 3 deep dives).
+
+⏺ Agent "Phase 3: Deep dive key insights" completed
+
+⏺ All phases 3-5 complete! Now writing the Phase 6 master report.
+
+⏺ Let me read the three new reports to synthesize the master report:
+
+  Read 3 files (ctrl+o to expand)
+
+⏺ Good, I have the key details from all reports. Now let me write the master
+  report:
+
+⏺ Write(docs/research/00_master_report.md)
+  ⎿  Wrote 272 lines to docs/research/00_master_report.md
+      1 # deval v2 Research: Master Report
+      2 Phase: 6 | Status: COMPLETE
+      3 
+      4 This is the consolidated summary of 11 research reports spanning 
+        VM architecture
+      5 analysis (Dart VM, Lua, V8/QuickJS, WASM), deval internals (runti
+        me + compiler +
+      6 bridge), cross-referencing, deep dives on Dart-specific constrain
+        ts, architecture
+      7 design, and developer experience.
+      8 
+      9 ---
+     … +262 lines (ctrl+o to expand)
+
+⏺ Now let me update the project memory so future sessions know about this
+  research:
+
+  Wrote 1 memory (ctrl+o to expand)
+
+⏺ All 6 phases complete! Here's what's waiting for you in docs/research/:
+
+  12 reports total:
+
+  ┌─────┬─────────────────┬──────────────────────────────────────────────────┐
+  │  #  │     Report      │                  What it covers                  │
+  ├─────┼─────────────────┼──────────────────────────────────────────────────┤
+  │ 00  │ Master Report   │ Start here. "Do 3 things" list, full summary,    │
+  │     │                 │ decision points                                  │
+  ├─────┼─────────────────┼──────────────────────────────────────────────────┤
+  │ 01  │ Dart VM         │ Compilation pipeline, Smi tagging, inline        │
+  │     │                 │ caches, async/await, GC                          │
+  ├─────┼─────────────────┼──────────────────────────────────────────────────┤
+  │ 02  │ Lua VM          │ 32-bit instructions, NaN boxing, tables, C API   │
+  │     │                 │ (the gold standard)                              │
+  ├─────┼─────────────────┼──────────────────────────────────────────────────┤
+  │ 03  │ V8/QuickJS      │ Hidden classes, feedback vectors, atoms, shapes, │
+  │     │                 │  embedding APIs                                  │
+  ├─────┼─────────────────┼──────────────────────────────────────────────────┤
+  │ 04  │ WASM            │ Binary format, wasm3 meta-machine, structured    │
+  │     │                 │ control flow, security                           │
+  ├─────┼─────────────────┼──────────────────────────────────────────────────┤
+  │ 05  │ deval Runtime   │ Every bottleneck cataloged: dispatch, boxing,    │
+  │     │                 │ bridge, frames                                   │
+  ├─────┼─────────────────┼──────────────────────────────────────────────────┤
+  │ 06  │ deval Compiler  │ No IR, missing optimizations, bugs found, file   │
+  │     │                 │ reference index                                  │
+  ├─────┼─────────────────┼──────────────────────────────────────────────────┤
+  │ 07  │ Bridge Patterns │ 10 VM comparison, deval is worst on every        │
+  │     │                 │ metric, 7 proposals                              │
+  ├─────┼─────────────────┼──────────────────────────────────────────────────┤
+  │ 08  │ Cross-Reference │ Universal patterns, Dart constraints, bottleneck │
+  │     │                 │  ranking                                         │
+  ├─────┼─────────────────┼──────────────────────────────────────────────────┤
+  │ 09  │ Deep Dives      │ Value repr in Dart (5 approaches benchmarked),   │
+  │     │                 │ string interning, bytecode encoding              │
+  ├─────┼─────────────────┼──────────────────────────────────────────────────┤
+  │ 10  │ v2 Design       │ Full architecture: bytecode format, object       │
+  │     │                 │ model, runtime, bridge, compiler, migration      │
+  ├─────┼─────────────────┼──────────────────────────────────────────────────┤
+  │ 11  │ DX Design       │ 21-method API, 15x boilerplate reduction, game   │
+  │     │                 │ engine patterns                                  │
+  └─────┴─────────────────┴──────────────────────────────────────────────────┘
+
+  The quickest wins (1-2 days, 5-20x faster):
+  1. Switch dispatch (replace virtual call loop)
+  2. Kill double-allocation in $int/$bool/$String boxing
+  3. Fix $Bridge try/catch with null check
+
+  Good morning when you see this!
+
+✻ Worked for 2m 8s
+
+❯ for the switch based, can you write a minimal bench between the the two       
+approach to even see it make stuff faster?                                      
+
+⏺ Good idea -- let's prove it before committing. I'll write a benchmark that
+  simulates deval's dispatch loop both ways.
+  Read 1 file (ctrl+o to expand)
+
+⏺ Write(bin/bench_dispatch.dart)
+  ⎿  Wrote 314 lines to bin/bench_dispatch.dart
+       1 /// Benchmark: virtual dispatch vs switch dispatch for interpret
+         er loops.
+       2 ///
+       3 /// Simulates deval's core dispatch loop with a simple program:
+       4 ///   sum = 0; for i in 0..N: sum += i
+       5 ///
+       6 /// Run AOT (the only mode that matters for real perf):
+       7 ///   fvm dart compile exe bin/bench_dispatch.dart -o /tmp/bench
+         _dispatch
+       8 ///   /tmp/bench_dispatch
+       9 ///
+      10 /// Run JIT (for quick sanity check, numbers will differ):
+     … +304 lines (ctrl+o to expand)
+
+⏺ Let me run it in JIT first for a quick sanity check, then compile AOT for real
+   numbers:
+
+⏺ Bash(fvm dart run bin/bench_dispatch.dart)
+  ⎿  Dispatch benchmark: sum(0..10000000)
+     Expected result: 49999995000000
+     … +13 lines (ctrl+o to expand)
+
+⏺ ~2x faster in JIT already. Now the real test -- AOT:
+
+⏺ Bash(fvm dart compile exe bin/bench_dispatch.dart -o /tmp/bench_dispatch 2>&1)
+  ⎿  Generated: /tmp/bench_dispatch
+
+⏺ Bash(/tmp/bench_dispatch)
+  ⎿  Dispatch benchmark: sum(0..10000000)
+     Expected result: 49999995000000
+     … +13 lines (ctrl+o to expand)
+
+⏺ Interesting -- AOT tells a different story than JIT. Let me run it a few more
+  times to get stable numbers:
+
+⏺ Bash(for i in 1 2 3; do echo "--- Run $i ---"; /tmp/bench_dispatch; echo;
+      done)
+  ⎿  --- Run 1 ---
+     Dispatch benchmark: sum(0..10000000)
+     Expected result: 49999995000000
+     … +27 lines (ctrl+o to expand)
+  ⎿  (timeout 5m)
+
+⏺ Interesting results! In AOT:
+  - Virtual dispatch: ~97 ms
+  - Switch + List<Object?>: ~104 ms (slightly slower)
+  - Switch + Int64List: ~60 ms (1.6x faster)
+
+  The switch alone doesn't win -- it's the unboxed registers that matter. But
+  this bench only has 8 opcodes. Real deval has 74+, which makes virtual
+  dispatch truly megamorphic. Let me make it more realistic:
+
+⏺ Update(bin/bench_dispatch.dart)
+  ⎿  Added 73 lines
+      169    return Int32List.fromList(ops);
+      170  }
+      171  
+      172 +// Pad the switch with many cases to simulate deval's 74+ opco
+          +des.                                                          
+      173 +// This prevents the AOT compiler from simplifying to a small 
+          +range check.                                                  
+      174  int runSwitch(Int32List code, int n) {
+      175    final regs = List<Object?>.filled(8, null);
+      176    regs[2] = n;
+     ...
+      202          regs[code[base + 1]] = (regs[code[base + 1]] as int) +
+            1;
+      203        case OP_MOVE:
+      204          regs[code[base + 1]] = regs[code[base + 2]];
+      205 +      // Pad with 70 more cases to simulate deval's ~80 opcode
+          +s                                                             
+      206 +      case 10: regs[0] = regs[0];                             
+      207 +      case 11: regs[0] = regs[0];                             
+      208 +      case 12: regs[0] = regs[0];                             
+      209 +      case 13: regs[0] = regs[0];                             
+      210 +      case 14: regs[0] = regs[0];                             
+      211 +      case 15: regs[0] = regs[0];                             
+      212 +      case 16: regs[0] = regs[0];                             
+      213 +      case 17: regs[0] = regs[0];                             
+      214 +      case 18: regs[0] = regs[0];                             
+      215 +      case 19: regs[0] = regs[0];                             
+      216 +      case 20: regs[0] = regs[0];                             
+      217 +      case 21: regs[0] = regs[0];                             
+      218 +      case 22: regs[0] = regs[0];                             
+      219 +      case 23: regs[0] = regs[0];                             
+      220 +      case 24: regs[0] = regs[0];                             
+      221 +      case 25: regs[0] = regs[0];                             
+      222 +      case 26: regs[0] = regs[0];                             
+      223 +      case 27: regs[0] = regs[0];                             
+      224 +      case 28: regs[0] = regs[0];                             
+      225 +      case 29: regs[0] = regs[0];                             
+      226 +      case 30: regs[0] = regs[0];                             
+      227 +      case 31: regs[0] = regs[0];                             
+      228 +      case 32: regs[0] = regs[0];                             
+      229 +      case 33: regs[0] = regs[0];                             
+      230 +      case 34: regs[0] = regs[0];                             
+      231 +      case 35: regs[0] = regs[0];                             
+      232 +      case 36: regs[0] = regs[0];                             
+      233 +      case 37: regs[0] = regs[0];                             
+      234 +      case 38: regs[0] = regs[0];                             
+      235 +      case 39: regs[0] = regs[0];                             
+      236 +      case 40: regs[0] = regs[0];                             
+      237 +      case 41: regs[0] = regs[0];                             
+      238 +      case 42: regs[0] = regs[0];                             
+      239 +      case 43: regs[0] = regs[0];                             
+      240 +      case 44: regs[0] = regs[0];                             
+      241 +      case 45: regs[0] = regs[0];                             
+      242 +      case 46: regs[0] = regs[0];                             
+      243 +      case 47: regs[0] = regs[0];                             
+      244 +      case 48: regs[0] = regs[0];                             
+      245 +      case 49: regs[0] = regs[0];                             
+      246 +      case 50: regs[0] = regs[0];                             
+      247 +      case 51: regs[0] = regs[0];                             
+      248 +      case 52: regs[0] = regs[0];                             
+      249 +      case 53: regs[0] = regs[0];                             
+      250 +      case 54: regs[0] = regs[0];                             
+      251 +      case 55: regs[0] = regs[0];                             
+      252 +      case 56: regs[0] = regs[0];                             
+      253 +      case 57: regs[0] = regs[0];                             
+      254 +      case 58: regs[0] = regs[0];                             
+      255 +      case 59: regs[0] = regs[0];                             
+      256 +      case 60: regs[0] = regs[0];                             
+      257 +      case 61: regs[0] = regs[0];                             
+      258 +      case 62: regs[0] = regs[0];                             
+      259 +      case 63: regs[0] = regs[0];                             
+      260 +      case 64: regs[0] = regs[0];                             
+      261 +      case 65: regs[0] = regs[0];                             
+      262 +      case 66: regs[0] = regs[0];                             
+      263 +      case 67: regs[0] = regs[0];                             
+      264 +      case 68: regs[0] = regs[0];                             
+      265 +      case 69: regs[0] = regs[0];                             
+      266 +      case 70: regs[0] = regs[0];                             
+      267 +      case 71: regs[0] = regs[0];                             
+      268 +      case 72: regs[0] = regs[0];                             
+      269 +      case 73: regs[0] = regs[0];                             
+      270 +      case 74: regs[0] = regs[0];                             
+      271 +      case 75: regs[0] = regs[0];                             
+      272 +      case 76: regs[0] = regs[0];                             
+      273 +      case 77: regs[0] = regs[0];                             
+      274 +      case 78: regs[0] = regs[0];                             
+      275 +      case 79: regs[0] = regs[0];                             
+      276      }
+      277      pc++;
+      278    }
+
+⏺ Now I also need to make the virtual dispatch more realistic -- add 74+ Op
+  subclasses so it's truly megamorphic:
+
+⏺ Update(bin/bench_dispatch.dart)
+  ⎿  Added 91 lines
+      112    }
+      113  }
+      114  
+      115 +// 70 more Op subclasses to make the call site truly megamorph
+          +ic (like deval's 74+)                                         
+      116 +class OpNop10 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      117 +class OpNop11 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      118 +class OpNop12 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      119 +class OpNop13 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      120 +class OpNop14 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      121 +class OpNop15 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      122 +class OpNop16 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      123 +class OpNop17 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      124 +class OpNop18 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      125 +class OpNop19 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      126 +class OpNop20 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      127 +class OpNop21 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      128 +class OpNop22 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      129 +class OpNop23 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      130 +class OpNop24 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      131 +class OpNop25 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      132 +class OpNop26 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      133 +class OpNop27 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      134 +class OpNop28 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      135 +class OpNop29 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      136 +class OpNop30 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      137 +class OpNop31 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      138 +class OpNop32 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      139 +class OpNop33 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      140 +class OpNop34 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      141 +class OpNop35 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      142 +class OpNop36 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      143 +class OpNop37 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      144 +class OpNop38 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      145 +class OpNop39 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      146 +class OpNop40 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      147 +class OpNop41 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      148 +class OpNop42 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      149 +class OpNop43 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      150 +class OpNop44 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      151 +class OpNop45 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      152 +class OpNop46 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      153 +class OpNop47 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      154 +class OpNop48 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      155 +class OpNop49 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      156 +class OpNop50 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      157 +class OpNop51 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      158 +class OpNop52 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      159 +class OpNop53 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      160 +class OpNop54 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      161 +class OpNop55 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      162 +class OpNop56 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      163 +class OpNop57 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      164 +class OpNop58 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      165 +class OpNop59 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      166 +class OpNop60 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      167 +class OpNop61 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      168 +class OpNop62 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      169 +class OpNop63 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      170 +class OpNop64 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      171 +class OpNop65 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      172 +class OpNop66 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      173 +class OpNop67 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      174 +class OpNop68 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      175 +class OpNop69 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      176 +class OpNop70 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      177 +class OpNop71 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      178 +class OpNop72 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      179 +class OpNop73 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      180 +class OpNop74 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      181 +class OpNop75 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      182 +class OpNop76 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      183 +class OpNop77 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      184 +class OpNop78 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      185 +class OpNop79 extends Op { @override void run(VirtualMachine v
+          +m) {} }                                                       
+      186 +                                                              
+      187 +// Force all Op subclasses to be alive so AOT sees the full po
+          +lymorphism.                                                   
+      188 +// Without this, tree shaking removes the nop classes and disp
+          +atch stays monomorphic.                                       
+      189 +final _allOps = <Op>[                                         
+      190 +  OpNop10(), OpNop11(), OpNop12(), OpNop13(), OpNop14(),      
+      191 +  OpNop15(), OpNop16(), OpNop17(), OpNop18(), OpNop19(),      
+      192 +  OpNop20(), OpNop21(), OpNop22(), OpNop23(), OpNop24(),      
+      193 +  OpNop25(), OpNop26(), OpNop27(), OpNop28(), OpNop29(),      
+      194 +  OpNop30(), OpNop31(), OpNop32(), OpNop33(), OpNop34(),      
+      195 +  OpNop35(), OpNop36(), OpNop37(), OpNop38(), OpNop39(),      
+      196 +  OpNop40(), OpNop41(), OpNop42(), OpNop43(), OpNop44(),      
+      197 +  OpNop45(), OpNop46(), OpNop47(), OpNop48(), OpNop49(),      
+      198 +  OpNop50(), OpNop51(), OpNop52(), OpNop53(), OpNop54(),      
+      199 +  OpNop55(), OpNop56(), OpNop57(), OpNop58(), OpNop59(),      
+      200 +  OpNop60(), OpNop61(), OpNop62(), OpNop63(), OpNop64(),      
+      201 +  OpNop65(), OpNop66(), OpNop67(), OpNop68(), OpNop69(),      
+      202 +  OpNop70(), OpNop71(), OpNop72(), OpNop73(), OpNop74(),      
+      203 +  OpNop75(), OpNop76(), OpNop77(), OpNop78(), OpNop79(),      
+      204 +];                                                            
+      205 +                                                              
+      206  class VirtualMachine {
+      207    final List<Object?> regs = List.filled(8, null);
+      208    int pc = 0;
+
+⏺ Also need to make sure _allOps isn't tree-shaken:
+
+⏺ Update(bin/bench_dispatch.dart)
+  ⎿  Added 3 lines
+      467    assert(r1 == r2 && r2 == r3, 'Results differ: $r1 vs $r2 vs 
+           $r3');
+      468    print('All approaches produce: $r1\n');
+      469  
+      470 +  // Prevent tree-shaking of nop Op subclasses -- forces megam
+          +orphic dispatch                                               
+      471 +  if (n < 0) for (final op in _allOps) op.run(VirtualMachine()
+          +);                                                            
+      472 +                                                              
+      473    print('--- Results ---');
+      474    bench('1. Virtual dispatch (current deval)', () => runVirtua
+           l(virtualProgram, n));
+      475    bench('2. Switch dispatch (List<Object?>)', () => runSwitch(
+           switchProgram, n));
+
+⏺ Also need to pad the unboxed switch:
+
+⏺ Update(bin/bench_dispatch.dart)
+  ⎿  Added 71 lines, removed 1 line
+      388        case OP_ADD:
+      389          regs[code[base + 1]] = regs[code[base + 2]] + regs[cod
+           e[base + 3]];
+      390        case OP_LT:
+      391 -        // Use 0/1 for bool in int register                   
+      391          regs[code[base + 1]] =
+      392              regs[code[base + 2]] < regs[code[base + 3]] ? 1 : 
+           0;
+      393        case OP_JUMP_FALSE:
+     ...
+      404          regs[code[base + 1]] = regs[code[base + 1]] + 1;
+      405        case OP_MOVE:
+      406          regs[code[base + 1]] = regs[code[base + 2]];
+      407 +      // Pad to match the 80-case switch                      
+      408 +      case 10: regs[0] = regs[0];                             
+      409 +      case 11: regs[0] = regs[0];                             
+      410 +      case 12: regs[0] = regs[0];                             
+      411 +      case 13: regs[0] = regs[0];                             
+      412 +      case 14: regs[0] = regs[0];                             
+      413 +      case 15: regs[0] = regs[0];                             
+      414 +      case 16: regs[0] = regs[0];                             
+      415 +      case 17: regs[0] = regs[0];                             
+      416 +      case 18: regs[0] = regs[0];                             
+      417 +      case 19: regs[0] = regs[0];                             
+      418 +      case 20: regs[0] = regs[0];                             
+      419 +      case 21: regs[0] = regs[0];                             
+      420 +      case 22: regs[0] = regs[0];                             
+      421 +      case 23: regs[0] = regs[0];                             
+      422 +      case 24: regs[0] = regs[0];                             
+      423 +      case 25: regs[0] = regs[0];                             
+      424 +      case 26: regs[0] = regs[0];                             
+      425 +      case 27: regs[0] = regs[0];                             
+      426 +      case 28: regs[0] = regs[0];                             
+      427 +      case 29: regs[0] = regs[0];                             
+      428 +      case 30: regs[0] = regs[0];                             
+      429 +      case 31: regs[0] = regs[0];                             
+      430 +      case 32: regs[0] = regs[0];                             
+      431 +      case 33: regs[0] = regs[0];                             
+      432 +      case 34: regs[0] = regs[0];                             
+      433 +      case 35: regs[0] = regs[0];                             
+      434 +      case 36: regs[0] = regs[0];                             
+      435 +      case 37: regs[0] = regs[0];                             
+      436 +      case 38: regs[0] = regs[0];                             
+      437 +      case 39: regs[0] = regs[0];                             
+      438 +      case 40: regs[0] = regs[0];                             
+      439 +      case 41: regs[0] = regs[0];                             
+      440 +      case 42: regs[0] = regs[0];                             
+      441 +      case 43: regs[0] = regs[0];                             
+      442 +      case 44: regs[0] = regs[0];                             
+      443 +      case 45: regs[0] = regs[0];                             
+      444 +      case 46: regs[0] = regs[0];                             
+      445 +      case 47: regs[0] = regs[0];                             
+      446 +      case 48: regs[0] = regs[0];                             
+      447 +      case 49: regs[0] = regs[0];                             
+      448 +      case 50: regs[0] = regs[0];                             
+      449 +      case 51: regs[0] = regs[0];                             
+      450 +      case 52: regs[0] = regs[0];                             
+      451 +      case 53: regs[0] = regs[0];                             
+      452 +      case 54: regs[0] = regs[0];                             
+      453 +      case 55: regs[0] = regs[0];                             
+      454 +      case 56: regs[0] = regs[0];                             
+      455 +      case 57: regs[0] = regs[0];                             
+      456 +      case 58: regs[0] = regs[0];                             
+      457 +      case 59: regs[0] = regs[0];                             
+      458 +      case 60: regs[0] = regs[0];                             
+      459 +      case 61: regs[0] = regs[0];                             
+      460 +      case 62: regs[0] = regs[0];                             
+      461 +      case 63: regs[0] = regs[0];                             
+      462 +      case 64: regs[0] = regs[0];                             
+      463 +      case 65: regs[0] = regs[0];                             
+      464 +      case 66: regs[0] = regs[0];                             
+      465 +      case 67: regs[0] = regs[0];                             
+      466 +      case 68: regs[0] = regs[0];                             
+      467 +      case 69: regs[0] = regs[0];                             
+      468 +      case 70: regs[0] = regs[0];                             
+      469 +      case 71: regs[0] = regs[0];                             
+      470 +      case 72: regs[0] = regs[0];                             
+      471 +      case 73: regs[0] = regs[0];                             
+      472 +      case 74: regs[0] = regs[0];                             
+      473 +      case 75: regs[0] = regs[0];                             
+      474 +      case 76: regs[0] = regs[0];                             
+      475 +      case 77: regs[0] = regs[0];                             
+      476 +      case 78: regs[0] = regs[0];                             
+      477 +      case 79: regs[0] = regs[0];                             
+      478      }
+      479      pc++;
+      480    }
+
+⏺ Now recompile and run AOT:
+
+⏺ Bash(fvm dart compile exe bin/bench_dispatch.dart -o /tmp/bench_dispatch 2>&1
+      && echo "---" && for i in 1 2 3; do echo "--- Run $i ---";
+      /tmp/bench_dispatch; echo; d…)
+  ⎿  Generated: /tmp/bench_dispatch
+     ---
+     --- Run 1 ---
+     … +29 lines (ctrl+o to expand)
+  ⎿  (timeout 5m)
+
+⏺ Consistent results across runs. Here's what the numbers say:
+
+  AOT Results (10M iterations, median):
+    Virtual dispatch:              ~93 ms
+    Switch + List<Object?> regs:  ~103 ms  (10% SLOWER than virtual)
+    Switch + Int64List regs:       ~60 ms  (1.55x faster than virtual)
+
+  Key takeaway: In Dart AOT, switch dispatch alone is NOT faster than virtual
+  dispatch for this workload. The AOT compiler actually handles megamorphic
+  virtual calls reasonably well (probably via a global dispatch table).
+
+  The real win comes from unboxed registers (Int64List instead of
+  List<Object?>). That's a 1.55x speedup just from avoiding Smi boxing/unboxing
+  through the Object? indirection.
+
+  This means the research reports' assumption that "switch dispatch = 2-5x
+  speedup" was wrong for Dart AOT. The actual priority order is:
+
+  1. Unboxed typed registers (Int64List for ints, Float64List for doubles) --
+  proven 1.5x here
+  2. Eliminating $Value allocations (the real bottleneck in actual deval) -- not
+   yet benchmarked
+  3. Switch dispatch -- marginal improvement by itself in AOT
+
+  The combination of switch + unboxed regs gives the 1.55x. Want me to also
+  benchmark the boxing overhead ($int allocation vs raw int) to quantify that
+  bottleneck?
+
+✻ Baked for 3m 32s
+
+❯   1. Unboxed typed registers (Int64List for ints, Float64List for doubles) -- 
+ proven 1.5x here\                                                              
+\                                                                               
+how much changes this need?                                                     
+
+⏺ Let me check how deeply the frame is wired into the runtime.
+
+⏺ Explore(Assess frame refactor scope)
+  ⎿  Done (41 tool uses · 58.9k tokens · 2m 14s)
+  (ctrl+o to expand)
+
+⏺ Clear picture. Here's the honest assessment:
+
+  Scope of Change
+
+  90 frame access sites across 67 ops in 5 files. That's a lot of touchpoints.
+
+  The problem is that List<Object?> holds EVERYTHING -- ints, doubles, bools,
+  strings, $Value objects, function pointers, captured frames. Switching to
+  Int64List only works for pure-int code. Real deval code mixes types in the
+  same frame:
+
+  frame[0] = 42          // int
+  frame[1] = "hello"     // String
+  frame[2] = $myObj      // $Instance
+  frame[3] = 3.14        // double
+
+  You can't put a String into an Int64List.
+
+  Realistic options:
+
+  Option A: Parallel typed arrays (big refactor)
+  - Int64List intRegs + Float64List doubleRegs + List<Object?> objRegs
+  - Compiler assigns each variable to the right array based on type
+  - Every op needs to know which array to read/write
+  - Scope: ~67 op classes + compiler changes. Weeks of work.
+
+  Option B: Keep List<Object?>, eliminate $Value boxing (medium refactor)
+  - The benchmark showed List<Object?> is only 10% slower than virtual dispatch
+  - The REAL cost is $int(v) allocating 2 objects, not the List<Object?> itself
+  - Dart VM already Smi-tags ints in List<Object?> (zero alloc for small ints)
+  - Just stop wrapping ints in $int -- store raw ints, check with is int
+  - Scope: change boxing ops + method dispatch. Days of work.
+
+  Option C: The benchmark was misleading (reality check)
+  - The 1.55x speedup came from Int64List eliminating ALL type checks
+  - But real code has mixed types -- you can't avoid type checks entirely
+  - The real bottleneck is $int(v) allocating 2 heap objects per box, not the
+  frame type
+
+  My recommendation
+
+  Option B is the right move. The bench proved that List<Object?> with raw Dart
+  ints is fine -- Dart's Smi tagging handles it. The win comes from not wrapping
+   values in $Value for internal operations, which is a different (and more
+  impactful) refactor than changing the frame data structure.
+
+  Want me to benchmark the actual boxing cost ($int allocation vs raw int) to
+  confirm this is where the real time goes?
+
+✻ Sautéed for 2m 52s
+
+❯ y                                                                             
+⏺ Write(bin/bench_boxing.dart)
+  ⎿  Wrote 228 lines to bin/bench_boxing.dart
+       1 /// Benchmark: $Value boxing overhead vs raw values in List<Obje
+         ct?>
+       2 ///
+       3 /// Simulates deval's actual hot path: sum loop where every iter
+         ation
+       4 /// boxes the result as $int (allocating 2 objects per box).
+       5 ///
+       6 /// Run AOT:
+       7 ///   fvm dart compile exe bin/bench_boxing.dart -o /tmp/bench_b
+         oxing
+       8 ///   /tmp/bench_boxing
+       9 
+      10 // -------------------------------------------------------------
+         --------------
+     … +218 lines (ctrl+o to expand)
+
+⏺ Bash(fvm dart compile exe bin/bench_boxing.dart -o /tmp/bench_boxing 2>&1 &&
+      echo "---" && /tmp/bench_boxing && echo && /tmp/bench_boxing)
+  ⎿  Error: Exit code 254
+
+     bin/bench_boxing.dart:219:27: Error: Undefined name 'intLite'.
+       bench('2. Lite boxing ($intLite only, 1 alloc/box)', () => 
+     runLiteBox(n));
+                               ^^^^^^^
+     Error: AOT compilation failed
+     Bad state: Generating AOT kernel dill failed!
+
+⏺ Update(bin/bench_boxing.dart)
+  ⎿  Added 1 line, removed 1 line
+      216  
+      217    print('--- Results ---\n');
+      218    bench('1. Current deval ($int + $Object, 2 allocs/box)', () 
+           => runBoxed(n));
+      219 -  bench('2. Lite boxing ($intLite only, 1 alloc/box)', () => r
+          -unLiteBox(n));                                                
+      219 +  bench('2. Lite boxing (1 alloc/box, no superclass)', () => r
+          +unLiteBox(n));                                                
+      220    bench('3. Raw values in List<Object?> (0 allocs)', () => run
+           Raw(n));
+      221    bench('4. Hybrid (raw + simplified loop)', () => runHybrid(n
+           ));
+      222    bench('5. Native Dart (no interpreter)', () => runNative(n))
+           ;
+
+⏺ Bash(fvm dart compile exe bin/bench_boxing.dart -o /tmp/bench_boxing 2>&1 &&
+      echo "---" && /tmp/bench_boxing && echo && /tmp/bench_boxing)
+  ⎿  Generated: /tmp/bench_boxing
+     ---
+     Boxing benchmark: sum(0..10000000) = 49999995000000
+     … +26 lines (ctrl+o to expand)
+  ⎿  (timeout 2m)
+
+⏺ These numbers are very clear:
+
+  AOT Results (10M iterations, median):
+
+    1. Current deval ($int + $Object)    43.4 ms   (baseline)
+    2. Lite box (1 alloc, no superclass) 37.9 ms   (1.14x faster -- removing
+  $Object helps a bit)
+    3. Raw int in List<Object?>           7.1 ms   (6.1x faster -- no boxing at
+  all)
+    4. Hybrid (simplified loop)           2.7 ms   (16x faster)
+    5. Native Dart                        2.7 ms   (16x faster -- same as
+  hybrid!)
+
+  The story is crystal clear:
+
+  ┌─────────────────────────────────────┬─────────────────────┬─────────────┐
+  │               Change                │       Speedup       │   Effort    │
+  ├─────────────────────────────────────┼─────────────────────┼─────────────┤
+  │ Remove $Object superclass from $num │ 1.14x               │ LOW (hours) │
+  ├─────────────────────────────────────┼─────────────────────┼─────────────┤
+  │ Stop boxing entirely for internal   │ 6.1x                │ MEDIUM      │
+  │ ops                                 │                     │ (days)      │
+  ├─────────────────────────────────────┼─────────────────────┼─────────────┤
+  │ List<Object?> with as int vs native │ 1.0x (zero          │ N/A         │
+  │  Dart                               │ overhead!)          │             │
+  └─────────────────────────────────────┴─────────────────────┴─────────────┘
+
+  Key insights:
+
+  1. Boxing is THE bottleneck. 6x speedup just from storing raw ints instead of
+  $int wrappers.
+  2. List<Object?> is free. Approach 4 (raw ints in List<Object?> with as int
+  casts) matches native Dart performance exactly (2.7ms both). Dart's Smi
+  tagging means List<Object?> holding ints has zero overhead.
+  3. Removing $Object superclass alone is marginal -- only 14%. The real win is
+  eliminating boxing entirely for int-typed slots.
+  4. The compiler already knows which slots are int. It tracks
+  Variable.type.boxed and has unboxedAcrossFunctionBoundaries = {int, double, 
+  bool, list}. The information is there -- the runtime just doesn't use it.
+
+  The path forward: make the compiler skip BoxInt/BoxDouble ops when it knows
+  the value stays in int-typed slots, and make arithmetic ops read raw ints
+  directly. That's where the 6x lives.
+
+✻ Cooked for 1m 8s
+
+❯ so only boxint and boxdoule , there should be a rason why  the packaege       
+choose to box them?                                                             
+
+⏺ Good question. Let me find out why boxing exists.
+
+  Searched for 1 pattern, read 3 files (ctrl+o to expand)
+
+⏺ Now I see the full picture. Let me read the key boxing trigger:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ cont                                                                          
+
+⏺ The reason boxing exists is right there in the code. Three places force it:
+
+  1. Method args are ALWAYS boxed (method.dart:46-52):
+  // Method args are always boxed to allow for bridge interop to have a
+  // consistent interface
+  2. Return values from instance methods are boxed (return.dart:71-81):
+  // Return types must be boxed when returning from instance methods, even if
+  // the return type can be unboxed across function boundaries, because
+  // the method may be called in a dynamic context where we have no information
+  // about the expected return type.
+  3. Branch/loop reconciliation (context.dart:135-138): When two branches
+  disagree on boxed state, the compiler inserts box/unbox ops to make them
+  consistent.
+
+  The root cause is bridge interop. The $Value interface ($getProperty,
+  $setProperty, method calls) expects every value to be a $Value. When an eval'd
+   method might be called dynamically (through InvokeDynamic) or overridden by a
+   bridge class, args and returns MUST be $Value so the bridge can handle them.
+
+  Top-level functions and operators already skip boxing when possible
+  (skipClassBoxing, allowUnboxed: true). The problem is instance methods -- they
+   could be called from bridge code at any time, so the compiler plays it safe
+  and boxes everything.
+
+  So the 6x sits behind a design constraint, not a bug. You can't just remove
+  boxing without solving the bridge calling convention first. The fix order
+  would be:
+
+  1. Change the bridge calling convention to not require $Value (new ArgReader /
+   int-indexed dispatch from the research)
+  2. Then the compiler can stop boxing method args/returns
+  3. Then you get the 6x
+
+  That's the v2 bridge redesign from report 10 -- not a quick win, but the
+  actual bottleneck. Want to dig into how big that bridge refactor would be, or
+  focus on the quick wins first ($Object superclass removal, $Bridge try/catch
+  fix)?
+
+❯ y                                                                             
+
+⏺ Let me map out exactly what touches the bridge calling convention.
+
+  Searched for 5 patterns (ctrl+o to expand)
+
+⏺ Now let me check external consumers -- typhon_dart's plugin:
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ Here's the full scope:
+
+  Bridge calling convention surface area:
+    223 bridge functions across 40 stdlib files (signature: Runtime, $Value?,
+  List<$Value?>)
+    206 $getProperty/$bridgeGet occurrences across 58 files
+     31 registerBridgeFunc call sites
+     61 total stdlib wrapper files
+      2 external consumer files (typhon_dart)
+
+  It's big. The (Runtime, $Value?, List<$Value?>) signature is baked into 223
+  functions across 40 files. That's the stdlib alone -- every method on $int,
+  $String, $List, $Map, $Future, $Stream, etc.
+
+  Two realistic paths:
+
+  Path A: Dual calling convention (incremental)
+  - Add a NEW bridge function signature alongside the old one
+  - New signature: Object? fn(Runtime rt, Object? target, List<Object?> args) --
+   raw values, no $Value
+  - The runtime tries the new convention first, falls back to old
+  - Migrate stdlib wrappers one file at a time
+  - Old plugins keep working
+  - Effort: weeks, but shippable incrementally
+
+  Path B: Quick wins first, defer bridge refactor
+  - Fix $Bridge try/catch -> null check (5 lines, report says 10-100x on bridge
+  access)
+  - Remove $Object superclass from $num/$bool/$String (bench showed 14% on
+  boxing)
+  - Add missing numeric intrinsics (*, /, %, <<, >>) to avoid bridge dispatch
+  for common math
+  - These don't touch the 223 bridge functions at all
+  - Effort: days, ships immediately
+
+  Path B is the smart move -- grab the easy wins now, plan the bridge refactor
+  as a proper project. The quick wins reduce how often code hits the bridge in
+  the first place (more intrinsics = fewer dynamic dispatches = fewer bridge
+  crossings).
+
+  Want me to start on Path B?
+
+✻ Crunched for 59s
+
+❯ (Runtime, $Value?, List<$Value?>) where are this from                         
+
+  Searched for 3 patterns, read 1 file (ctrl+o to expand)
+
+⏺ It comes from one typedef in function.dart:10-11:
+
+  typedef EvalCallableFunc =
+      $Value? Function(Runtime runtime, $Value? target, List<$Value?> args);
+
+  This is THE contract. Every bridge function, every stdlib wrapper method,
+  every $getProperty return, every registerBridgeFunc call -- all flow through
+  this single typedef. The 223 occurrences are functions implementing this
+  signature.
+
+  It's one line that forces the entire system to box everything.
+
+❯ what are the better way? why this contract is $Value                          
+
+⏺ The reason is that $Value serves two purposes at once, and they should be
+  separated.
+
+  Purpose 1: Type-uniform dispatch. When eval'd code calls .length on something,
+   the runtime doesn't know at that point if it's a $String, $List, or an eval'd
+   class. $getProperty(runtime, 'length') works on anything. Raw Object? can't
+  do that -- you'd need if (x is String) ... else if (x is List) ....
+
+  Purpose 2: Eval'd subclass detection. When a bridge class is subclassed in
+  eval'd code, $Bridge.$getProperty checks if the property was overridden. This
+  needs the $Value/$Instance interface to delegate to the eval'd subclass.
+
+  But here's the thing -- neither purpose requires wrapping primitives. Nobody
+  subclasses int in eval'd code. Nobody overrides int.+ in a script. Primitives
+  only need $Value wrapping because the bridge signature demands it uniformly.
+
+  The better design splits the contract:
+
+  // Primitives flow as raw Dart values -- int, double, bool, String, null
+  // Only eval'd instances and bridge objects get wrapped
+
+  // Instead of one universal type:
+  typedef EvalCallableFunc = $Value? Function(Runtime, $Value?, List<$Value?>);
+
+  // Two-tier approach:
+  typedef BridgeFunc = Object? Function(Runtime, Object?, List<Object?>);
+  // ^-- args come in as raw values (int, double, String, $Instance, etc.)
+  // ^-- return raw values, runtime boxes only if needed
+
+  The bridge function for int.abs() becomes:
+
+  // Current: 4 allocations (unbox target, unbox args, compute, box result)
+  $Value? _abs(Runtime rt, $Value? target, List<$Value?> args) {
+    return $int((target!.$value as int).abs());
+  }
+
+  // Better: 0 allocations
+  Object? _abs(Runtime rt, Object? target, List<Object?> args) {
+    return (target as int).abs();
+  }
+
+  The InvokeDynamic op would do the type dispatch that $getProperty does today
+  -- but at the op level, not the value level. For eval'd instances it checks
+  the vtable. For bridge objects it calls the bridge handler. For raw
+  ints/strings it uses a built-in property table. The value itself stays raw.
+
+  The 223 stdlib functions would all get simpler (no $value unwrapping, no
+  $int() re-wrapping), and primitives never allocate.
+
+✻ Worked for 31s
+
+❯ Nobody subclasses int in eval'd code. Nobody overrides int.+ in a script.\    
+\                                                                               
+dart doesn't allow this iirc?                                                   
+
+⏺ Right -- Dart's int, double, bool, String are all final classes. You literally
+   can't extend them. So wrapping them in $Value is pure overhead with zero
+  purpose.
+
+  The only things that actually need the $Instance interface are:
+  - Eval'd class instances ($InstanceImpl) -- have eval'd methods in a map
+  - Bridge class instances ($Bridge) -- native objects that can be subclassed in
+   eval'd code
+
+  Everything else -- int, double, bool, String, null, List, Map, Set -- can flow
+   as raw Dart values. The runtime just needs to handle them at the dispatch
+  level instead of the value level.
+
+❯ Nobody overrides int.+ in a script \                                          
+\                                                                               
+does Dart allow it?                                                             
+
+⏺ You can define operator+ via extensions, but extensions don't override --
+  they're static dispatch, resolved at compile time. They can't change what int 
+  + int does at runtime.
+
+  And int is final, so no subclass can override + either.
+
+  So yes, int.+ is guaranteed to always be int.+. Same for all operators on all
+  primitive types. The runtime can hardcode them as intrinsics with zero dynamic
+   dispatch.
